@@ -184,7 +184,8 @@ async def seed_data() -> None:
                     await _upsert_one(
                         session,
                         Field,
-                        {"farm_id": farm_by_name[field_data["farm_name"]].id, "name": field_data["name"]},
+                        # {"farm_id": farm_by_name[field_data["farm_name"]].id, "name": field_data["name"]},
+                        {"farm_id": farm_by_name[field_data["farm_name"]].id},
                         {
                             "crop_type": field_data["crop_type"],
                             "area_ha": field_data["area_ha"],
