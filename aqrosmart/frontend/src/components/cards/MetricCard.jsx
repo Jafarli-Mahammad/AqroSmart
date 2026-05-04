@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function MetricCard({ title, value }) {
+function MetricCard({ title, value }) {
   return (
     <div className="bg-white p-4 rounded shadow">
       <h3 className="text-gray-500">{title}</h3>
@@ -8,3 +8,5 @@ export default function MetricCard({ title, value }) {
     </div>
   )
 }
+
+export default React.memo(MetricCard)

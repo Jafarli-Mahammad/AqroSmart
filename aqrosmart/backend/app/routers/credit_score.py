@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,12 +24,27 @@ async def get_credit_score(farmer_id: int, session: AsyncSession = Depends(get_d
     if farmer is None:
         raise HTTPException(status_code=404, detail="Farmer not found")
 
+    latest_subsidy_subquery = (
+        select(
+            SubsidyRecommendation.analysis_run_id.label("analysis_run_id"),
+            SubsidyRecommendation.final_subsidy_azn.label("final_subsidy_azn"),
+            SubsidyRecommendation.base_subsidy_azn.label("base_subsidy_azn"),
+        )
+        .distinct(SubsidyRecommendation.analysis_run_id)
+        .order_by(SubsidyRecommendation.analysis_run_id, SubsidyRecommendation.id.desc())
+        .subquery()
+    )
+
     analysis_rows = (
         await session.execute(
-            select(AnalysisRun, Field)
+            select(AnalysisRun, Field, latest_subsidy_subquery.c.final_subsidy_azn, latest_subsidy_subquery.c.base_subsidy_azn)
             .join(Field, Field.id == AnalysisRun.field_id)
             .join(Farm, Farm.id == Field.farm_id)
             .join(Farmer, Farmer.id == Farm.farmer_id)
+            .outerjoin(
+                latest_subsidy_subquery,
+                latest_subsidy_subquery.c.analysis_run_id == AnalysisRun.id,
+            )
             .where(Farmer.id == farmer_id)
             .order_by(AnalysisRun.timestamp.desc().nullslast(), AnalysisRun.id.desc())
             .limit(5)
@@ -38,23 +52,14 @@ async def get_credit_score(farmer_id: int, session: AsyncSession = Depends(get_d
     ).all()
 
     payloads: list[Any] = []
-    for analysis_run, field in analysis_rows:
-        subsidy = (
-            await session.execute(
-                select(SubsidyRecommendation)
-                .where(SubsidyRecommendation.analysis_run_id == analysis_run.id)
-                .order_by(SubsidyRecommendation.id.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-
+    for analysis_run, field, final_subsidy_azn, base_subsidy_azn in analysis_rows:
         payloads.append(
             {
                 "productivity_score": analysis_run.productivity_score or 0.0,
                 "moisture_stress_score": analysis_run.moisture_stress_score or 0.0,
                 "disease_risk_score": analysis_run.disease_risk_score or 0.0,
-                "final_subsidy_azn": subsidy.final_subsidy_azn if subsidy else None,
-                "base_subsidy_azn": subsidy.base_subsidy_azn if subsidy else None,
+                "final_subsidy_azn": final_subsidy_azn,
+                "base_subsidy_azn": base_subsidy_azn,
                 "field": {"irrigation_type": field.irrigation_type},
             }
         )

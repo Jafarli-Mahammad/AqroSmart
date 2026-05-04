@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
+import asyncio
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.analysis_run import AnalysisRun
-from app.models.farm import Farm
 from app.models.field import Field
-from app.models.irrigation_recommendation import IrrigationRecommendation, UrgencyLevel
+from app.models.irrigation_recommendation import IrrigationRecommendation
 from app.models.satellite_snapshot import SatelliteSnapshot
 from app.models.scenario import Scenario
 from app.models.sensor_reading import SensorReading
@@ -20,8 +20,10 @@ from app.models.subsidy_recommendation import SubsidyRecommendation
 from app.models.weather_snapshot import WeatherSnapshot
 from app.services.simulation_engine import get_scenario_by_slug, run_full_analysis
 from app.models.crop import Crop
+from app.services.response_cache import response_cache
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
+_reset_lock = asyncio.Lock()
 
 
 class ScenarioOption(BaseModel):
@@ -58,6 +60,14 @@ class SimulationResetResponse(BaseModel):
 
 async def _seed_field_data(session: AsyncSession) -> tuple[int, int, int]:
     fields = (await session.execute(select(Field).order_by(Field.id.asc()))).scalars().all()
+    crop_rows = (
+        await session.execute(select(Crop).where(Crop.field_id.in_([field.id for field in fields])).order_by(Crop.id.desc()))
+    ).scalars().all()
+    latest_crop_by_field: dict[int, Crop] = {}
+    for crop in crop_rows:
+        if crop.field_id is not None and crop.field_id not in latest_crop_by_field:
+            latest_crop_by_field[crop.field_id] = crop
+
     if not fields:
         return 0, 0, 0
 
@@ -66,9 +76,7 @@ async def _seed_field_data(session: AsyncSession) -> tuple[int, int, int]:
     weather_rows: list[WeatherSnapshot] = []
     for field in fields:
         scenario = get_scenario_by_slug("healthy_field")
-        crop = (
-            await session.execute(select(Crop).where(Crop.field_id == field.id).order_by(Crop.id.desc()).limit(1))
-        ).scalar_one_or_none() or SimpleNamespace(typical_yield_per_ha=5.0)
+        crop = latest_crop_by_field.get(field.id) or SimpleNamespace(typical_yield_per_ha=5.0)
         analysis_result = run_full_analysis(field, crop, scenario)
 
         sensor_rows.append(
@@ -110,16 +118,26 @@ async def _seed_field_data(session: AsyncSession) -> tuple[int, int, int]:
 
 
 @router.get("/state", response_model=SimulationStateResponse)
-async def get_simulation_state(session: AsyncSession = Depends(get_db)) -> SimulationStateResponse:
-    scenarios = (await session.execute(select(Scenario).order_by(Scenario.id.asc()))).scalars().all()
+async def get_simulation_state(
+    session: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> SimulationStateResponse:
+    cache_key = f"simulation:state:{limit}:{offset}"
+    cached = response_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    scenarios = (await session.execute(select(Scenario).order_by(Scenario.id.asc()).limit(limit).offset(offset))).scalars().all()
     if not scenarios:
         raise HTTPException(status_code=404, detail="No scenarios found")
 
     active = next((scenario.slug for scenario in scenarios if scenario.is_active), scenarios[0].slug)
-    return SimulationStateResponse(
+    result = SimulationStateResponse(
         active_scenario=active,
         scenarios=[ScenarioOption.model_validate(scenario) for scenario in scenarios],
     )
+    response_cache.set(cache_key, result)
+    return result
 
 
 @router.post("/scenario/{scenario_slug}", response_model=SimulationStateResponse)
@@ -131,54 +149,64 @@ async def set_active_scenario(scenario_slug: str, session: AsyncSession = Depend
     await session.execute(update(Scenario).values(is_active=False))
     scenario.is_active = True
     await session.commit()
+    response_cache.invalidate_prefix("simulation:state")
+    response_cache.invalidate_prefix("dashboard:summary")
     return await get_simulation_state(session)
 
 
 @router.post("/reset", response_model=SimulationResetResponse)
 async def reset_simulation(session: AsyncSession = Depends(get_db)) -> SimulationResetResponse:
-    deleted_analysis_runs = (await session.execute(delete(AnalysisRun))).rowcount or 0
-    deleted_subsidy_recommendations = (await session.execute(delete(SubsidyRecommendation))).rowcount or 0
-    deleted_irrigation_recommendations = (await session.execute(delete(IrrigationRecommendation))).rowcount or 0
+    if _reset_lock.locked():
+        raise HTTPException(status_code=409, detail="Simulation reset already in progress")
+    await _reset_lock.acquire()
+    try:
+        deleted_analysis_runs = (await session.execute(delete(AnalysisRun))).rowcount or 0
+        deleted_subsidy_recommendations = (await session.execute(delete(SubsidyRecommendation))).rowcount or 0
+        deleted_irrigation_recommendations = (await session.execute(delete(IrrigationRecommendation))).rowcount or 0
 
-    await session.execute(delete(SensorReading))
-    await session.execute(delete(SatelliteSnapshot))
-    await session.execute(delete(WeatherSnapshot))
+        await session.execute(delete(SensorReading))
+        await session.execute(delete(SatelliteSnapshot))
+        await session.execute(delete(WeatherSnapshot))
 
-    scenario_result = await session.execute(select(Scenario).where(Scenario.slug == "healthy_field"))
-    scenario = scenario_result.scalar_one_or_none()
-    if scenario is None:
-        existing = (await session.execute(select(Scenario))).scalars().all()
-        if existing:
-            for row in existing:
-                row.is_active = row.slug == existing[0].slug
+        scenario_result = await session.execute(select(Scenario).where(Scenario.slug == "healthy_field"))
+        scenario = scenario_result.scalar_one_or_none()
+        if scenario is None:
+            existing = (await session.execute(select(Scenario))).scalars().all()
+            if existing:
+                for row in existing:
+                    row.is_active = row.slug == existing[0].slug
+            else:
+                seed = get_scenario_by_slug("healthy_field")
+                scenario = Scenario(
+                    name=seed.name,
+                    slug=seed.slug,
+                    description="Deterministic healthy baseline scenario",
+                    weather_modifier=seed.weather_modifier,
+                    soil_moisture_modifier=seed.soil_moisture_modifier,
+                    ndvi_modifier=seed.ndvi_modifier,
+                    yield_modifier=seed.yield_modifier,
+                    is_active=True,
+                )
+                session.add(scenario)
         else:
-            seed = get_scenario_by_slug("healthy_field")
-            scenario = Scenario(
-                name=seed.name,
-                slug=seed.slug,
-                description="Deterministic healthy baseline scenario",
-                weather_modifier=seed.weather_modifier,
-                soil_moisture_modifier=seed.soil_moisture_modifier,
-                ndvi_modifier=seed.ndvi_modifier,
-                yield_modifier=seed.yield_modifier,
-                is_active=True,
-            )
-            session.add(scenario)
-    else:
-        await session.execute(update(Scenario).values(is_active=False))
-        scenario.is_active = True
+            await session.execute(update(Scenario).values(is_active=False))
+            scenario.is_active = True
 
-    reseeded_sensor_readings, reseeded_satellite_snapshots, reseeded_weather_snapshots = await _seed_field_data(session)
-    await session.commit()
+        reseeded_sensor_readings, reseeded_satellite_snapshots, reseeded_weather_snapshots = await _seed_field_data(session)
+        await session.commit()
 
-    active_result = await session.execute(select(Scenario.slug).where(Scenario.is_active.is_(True)).limit(1))
-    active = active_result.scalar_one_or_none() or "healthy_field"
-    return SimulationResetResponse(
-        deleted_analysis_runs=int(deleted_analysis_runs),
-        deleted_subsidy_recommendations=int(deleted_subsidy_recommendations),
-        deleted_irrigation_recommendations=int(deleted_irrigation_recommendations),
-        reseeded_sensor_readings=reseeded_sensor_readings,
-        reseeded_satellite_snapshots=reseeded_satellite_snapshots,
-        reseeded_weather_snapshots=reseeded_weather_snapshots,
-        active_scenario=active,
-    )
+        active_result = await session.execute(select(Scenario.slug).where(Scenario.is_active.is_(True)).limit(1))
+        active = active_result.scalar_one_or_none() or "healthy_field"
+        response_cache.invalidate_prefix("simulation:state")
+        response_cache.invalidate_prefix("dashboard:summary")
+        return SimulationResetResponse(
+            deleted_analysis_runs=int(deleted_analysis_runs),
+            deleted_subsidy_recommendations=int(deleted_subsidy_recommendations),
+            deleted_irrigation_recommendations=int(deleted_irrigation_recommendations),
+            reseeded_sensor_readings=reseeded_sensor_readings,
+            reseeded_satellite_snapshots=reseeded_satellite_snapshots,
+            reseeded_weather_snapshots=reseeded_weather_snapshots,
+            active_scenario=active,
+        )
+    finally:
+        _reset_lock.release()

@@ -11,7 +11,7 @@ class Crop(Base):
     water_requirement_mm = Column(Float)
     growth_days = Column(Integer)
     season = Column(String)
-    field_id = Column(Integer, ForeignKey("fields.id"), nullable=True)
+    field_id = Column(Integer, ForeignKey("fields.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

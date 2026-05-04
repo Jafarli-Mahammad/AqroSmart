@@ -6,7 +6,7 @@ from app.database import Base
 class WeatherSnapshot(Base):
     __tablename__ = "weather_snapshots"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
     date = Column(Date)
     max_temp_c = Column(Float)
     min_temp_c = Column(Float)

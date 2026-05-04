@@ -13,7 +13,7 @@ class RiskTier(str, enum.Enum):
 class CreditScoreResult(Base):
     __tablename__ = "credit_score_results"
     id = Column(Integer, primary_key=True, index=True)
-    farmer_id = Column(Integer, ForeignKey("farmers.id"))
+    farmer_id = Column(Integer, ForeignKey("farmers.id"), index=True)
     timestamp = Column(DateTime(timezone=True))
     productivity_score = Column(Float)
     subsidy_performance = Column(Float)

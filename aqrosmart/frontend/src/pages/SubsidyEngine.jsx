@@ -2,14 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import client from '../api/client'
 import useScenarioStore from '../store/scenarioStore'
-
-function Spinner() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-    </div>
-  )
-}
+import Spinner from '../components/common/Spinner'
+import ErrorCard from '../components/common/ErrorCard'
+import { formatNumber } from '../utils/format'
 
 function fieldLabel(field) {
   return `${field.name} · ${field.crop_type} · ${field.irrigation_type}`
@@ -45,7 +40,7 @@ function factorTooltip(name) {
 }
 
 function formatAzn(value) {
-  return `${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} AZN`
+  return `${formatNumber(value || 0, 0)} AZN`
 }
 
 export default function SubsidyEngine() {
@@ -82,7 +77,7 @@ export default function SubsidyEngine() {
           setSelectedFieldId(String(fieldOptions[0].id))
         }
       } catch (error) {
-        if (mounted) setMessage(error?.response?.data?.detail || 'Unable to load fields')
+        if (mounted) setMessage(error?.response?.data?.message || 'Unable to load fields')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -104,7 +99,7 @@ export default function SubsidyEngine() {
       setRecommendation(response.data)
       return response.data
     } catch (error) {
-      setMessage(error?.response?.data?.detail || 'Unable to load subsidy recommendation')
+      setMessage(error?.response?.data?.message || 'Unable to load subsidy recommendation')
       return null
     } finally {
       setFetchingRecommendation(false)
@@ -148,7 +143,7 @@ export default function SubsidyEngine() {
       const refreshed = await loadRecommendation(selectedFieldId)
       setComparison({ before: beforeValue, after: afterValue || refreshed?.final_subsidy_azn || 0 })
     } catch (error) {
-      setMessage(error?.response?.data?.detail || 'Unable to run subsidy improvement scenario')
+      setMessage(error?.response?.data?.message || 'Unable to run subsidy improvement scenario')
     } finally {
       setFetchingRecommendation(false)
     }
@@ -192,7 +187,7 @@ export default function SubsidyEngine() {
           </button>
         </div>
 
-        {message ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</div> : null}
+        {message ? <ErrorCard message={message} /> : null}
       </div>
 
       {recommendation ? (
@@ -231,7 +226,7 @@ export default function SubsidyEngine() {
               ].map(([label, value, tip]) => (
                 <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3" title={tip}>
                   <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">{label}</div>
-                  <div className="mt-2 text-lg font-semibold text-slate-900">{typeof value === 'number' && value < 10 ? value.toFixed(2) : formatAzn(value)}</div>
+                  <div className="mt-2 text-lg font-semibold text-slate-900">{typeof value === 'number' && value < 10 ? formatNumber(value, 2) : formatAzn(value)}</div>
                 </div>
               ))}
             </div>
@@ -262,7 +257,7 @@ export default function SubsidyEngine() {
                     <div className="text-xs text-slate-500">{effect}</div>
                   </div>
                   <div className="flex items-center gap-4 text-sm">
-                    <span className="text-slate-700">{typeof value === 'number' && value < 10 ? value.toFixed(2) : formatAzn(value)}</span>
+                    <span className="text-slate-700">{typeof value === 'number' && value < 10 ? formatNumber(value, 2) : formatAzn(value)}</span>
                     <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">{effectLabel(Number(numeric))}</span>
                     <span className="text-lg font-semibold text-slate-500" title={factorTooltip(String(label).toLowerCase())}>{effectIcon(Number(numeric))}</span>
                   </div>
@@ -282,7 +277,7 @@ export default function SubsidyEngine() {
 
       {comparison ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-          ↑ {deltaValue >= 0 ? '+' : '-'}{Math.abs(deltaValue).toLocaleString(undefined, { maximumFractionDigits: 0 })} AZN with efficiency improvements
+          ↑ {deltaValue >= 0 ? '+' : '-'}{formatNumber(Math.abs(deltaValue), 0)} AZN with efficiency improvements
           <div className="mt-1 text-xs font-medium text-emerald-600">
             Before: {formatAzn(comparison.before)} · After: {formatAzn(comparison.after)}
           </div>

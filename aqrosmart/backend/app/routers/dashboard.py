@@ -16,6 +16,7 @@ from app.models.farmer import Farmer
 from app.models.scenario import Scenario
 from app.models.credit_score_result import CreditScoreResult
 from app.models.subsidy_recommendation import SubsidyRecommendation
+from app.services.response_cache import response_cache
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -37,6 +38,9 @@ class DashboardSummary(BaseModel):
 
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> DashboardSummary:
+    cached = response_cache.get("dashboard:summary")
+    if cached is not None:
+        return cached
     total_farms = (await session.execute(select(func.count(Farm.id)))).scalar_one()
     total_fields = (await session.execute(select(func.count(Field.id)))).scalar_one()
     total_farmers = (await session.execute(select(func.count(Farmer.id)))).scalar_one()
@@ -72,7 +76,7 @@ async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> Dash
     if active_scenario is None:
         raise HTTPException(status_code=404, detail="No scenarios are configured")
 
-    return DashboardSummary(
+    result = DashboardSummary(
         total_farms=total_farms,
         total_fields=total_fields,
         total_farmers=total_farmers,
@@ -84,3 +88,5 @@ async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> Dash
         water_savings_pct=round(float(water_savings_pct), 1),
         active_scenario=active_scenario,
     )
+    response_cache.set("dashboard:summary", result)
+    return result

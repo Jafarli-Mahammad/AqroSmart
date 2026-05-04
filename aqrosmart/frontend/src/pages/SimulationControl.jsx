@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import client from '../api/client'
 import useScenarioStore from '../store/scenarioStore'
+import Spinner from '../components/common/Spinner'
+import ErrorCard from '../components/common/ErrorCard'
+import { formatNumber } from '../utils/format'
 
 const scenarioColors = {
   healthy_field: 'bg-emerald-500',
@@ -20,14 +23,6 @@ const scenarioDescriptions = {
   high_efficiency: 'Strong field performance with efficient water use and optimized inputs.',
   low_efficiency: 'Operational drag reduces productivity and irrigation effectiveness.',
   subsidy_improvement: 'Improved subsidy eligibility with stronger yield alignment.',
-}
-
-function Spinner() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-    </div>
-  )
 }
 
 function ProgressRow({ label, value, tone = 'bg-emerald-500' }) {
@@ -80,7 +75,7 @@ function YieldComparison({ potential, actual }) {
       <div>
         <div className="mb-2 flex items-center justify-between text-sm font-medium text-slate-600">
           <span>Actual Yield</span>
-          <span>{Number(actual || 0).toFixed(2)} t</span>
+          <span>{formatNumber(actual || 0, 2)} t</span>
         </div>
         <div className="relative h-5 rounded-full bg-slate-100">
           <div className="absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${actualWidth}%` }} />
@@ -91,7 +86,7 @@ function YieldComparison({ potential, actual }) {
       <div>
         <div className="mb-2 flex items-center justify-between text-sm font-medium text-slate-600">
           <span>Potential Yield</span>
-          <span>{Number(potential || 0).toFixed(2)} t</span>
+          <span>{formatNumber(potential || 0, 2)} t</span>
         </div>
         <div className="relative h-5 rounded-full bg-slate-100">
           <div className="absolute inset-y-0 left-0 rounded-full bg-emerald-200 transition-all duration-700" style={{ width: `${potentialWidth}%` }} />
@@ -146,7 +141,7 @@ export default function SimulationControl() {
           setSelectedFieldId(String(fieldOptions[0].id))
         }
       } catch (error) {
-        if (mounted) setMessage(error?.response?.data?.detail || 'Unable to load simulation data')
+        if (mounted) setMessage(error?.response?.data?.message || 'Unable to load simulation data')
       } finally {
         if (mounted) setLoadingFields(false)
       }
@@ -172,18 +167,23 @@ export default function SimulationControl() {
         setActiveScenario(scenarioSlug, scenarios)
       }
     } catch (error) {
-      setMessage(error?.response?.data?.detail || 'Unable to run analysis')
+      setMessage(error?.response?.data?.message || 'Unable to run analysis')
     } finally {
       setLoadingAnalysis(false)
     }
   }
 
   async function handleScenarioClick(slug) {
+    const previousSlug = activeScenarioSlug
+    setActiveScenario(slug, scenarios)
     try {
       await client.post(`/simulation/scenario/${slug}`)
-      setActiveScenario(slug, scenarios)
+      if (selectedFieldId) {
+        runAnalysis(selectedFieldId, slug)
+      }
     } catch (error) {
-      setMessage(error?.response?.data?.detail || 'Unable to switch scenario')
+      setActiveScenario(previousSlug, scenarios)
+      setMessage(error?.response?.data?.message || 'Unable to switch scenario')
     }
   }
 
@@ -265,7 +265,7 @@ export default function SimulationControl() {
             </div>
           </div>
 
-          {message ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</div> : null}
+          {message ? <ErrorCard message={message} /> : null}
 
           {loadingAnalysis && !analysisResult ? (
             <Spinner />
@@ -282,7 +282,7 @@ export default function SimulationControl() {
                 <div className={`rounded-2xl p-5 ${ProductivityTone(analysisResult.analysis_result?.productivity_score || 0)}`}>
                   <div className="text-sm font-medium text-slate-500">Productivity Score</div>
                   <div className="mt-2 text-5xl font-semibold tracking-tight">
-                    {(analysisResult.analysis_result?.productivity_score || 0).toFixed(1)}
+                    {formatNumber(analysisResult.analysis_result?.productivity_score || 0, 1)}
                   </div>
                 </div>
 
@@ -295,7 +295,7 @@ export default function SimulationControl() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ring-1 ${ConfidenceTone(analysisResult.analysis_result?.confidence_pct || 0)}`}>
-                  Confidence {(analysisResult.analysis_result?.confidence_pct || 0).toFixed(1)}%
+                  Confidence {formatNumber(analysisResult.analysis_result?.confidence_pct || 0, 1)}%
                 </span>
                 <span className="text-sm text-slate-500">
                   Scenario run ID: {analysisResult.analysis_run_id} · Recommendation IDs: {analysisResult.subsidy_recommendation_id}, {analysisResult.irrigation_recommendation_id}

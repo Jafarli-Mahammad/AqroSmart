@@ -15,14 +15,10 @@ import {
   YAxis,
 } from 'recharts'
 import client from '../api/client'
-
-function Spinner() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-    </div>
-  )
-}
+import Spinner from '../components/common/Spinner'
+import ErrorCard from '../components/common/ErrorCard'
+import Badge from '../components/common/Badge'
+import { formatNumber } from '../utils/format'
 
 function MetricCard({ title, value, accent }) {
   return (
@@ -40,19 +36,6 @@ function classifyCreditTier(score) {
   return 'D'
 }
 
-function tierClasses(tier) {
-  switch (tier) {
-    case 'A':
-      return 'bg-emerald-100 text-emerald-700 ring-emerald-200'
-    case 'B':
-      return 'bg-lime-100 text-lime-700 ring-lime-200'
-    case 'C':
-      return 'bg-amber-100 text-amber-700 ring-amber-200'
-    default:
-      return 'bg-rose-100 text-rose-700 ring-rose-200'
-  }
-}
-
 export default function Dashboard() {
   const navigate = useNavigate()
   const [summary, setSummary] = useState(null)
@@ -67,36 +50,31 @@ export default function Dashboard() {
     async function loadDashboard() {
       try {
         setLoading(true)
-        const [summaryResponse, farmsResponse] = await Promise.all([
-          client.get('/dashboard/summary'),
-          client.get('/farms'),
-        ])
+        const cachedSummary = window.sessionStorage.getItem('aqrosmart:dashboard:summary')
+        if (cachedSummary) {
+          setSummary(JSON.parse(cachedSummary))
+        }
+
+        const farmsResponse = await client.get('/farms')
 
         if (!mounted) return
 
         const farmsData = farmsResponse.data || []
-        const details = []
-
-        for (const farm of farmsData) {
-          const detailResponse = await client.get(`/farms/${farm.id}`)
-          const farmDetail = detailResponse.data
-          const fieldRows = await Promise.all(
-            (farmDetail.fields || []).map(async (field) => {
-              const fieldResponse = await client.get(`/fields/${field.id}`)
-              return fieldResponse.data
-            }),
-          )
-          details.push([farm.id, { farmDetail, fieldRows }])
-        }
+        const [summaryResponse, farmDetailResponses] = await Promise.all([
+          client.get('/dashboard/summary'),
+          Promise.all(farmsData.map((farm) => client.get(`/farms/${farm.id}`))),
+        ])
+        const details = farmDetailResponses.map((response) => [response.data.id, { farmDetail: response.data, fieldRows: response.data.fields || [] }])
 
         if (!mounted) return
 
         setSummary(summaryResponse.data)
+        window.sessionStorage.setItem('aqrosmart:dashboard:summary', JSON.stringify(summaryResponse.data))
         setFarms(farmsData)
         setFieldDetails(Object.fromEntries(details))
       } catch (requestError) {
         if (mounted) {
-          setError(requestError?.response?.data?.detail || 'Failed to load dashboard data')
+          setError(requestError?.response?.data?.message || 'Failed to load dashboard data')
         }
       } finally {
         if (mounted) {
@@ -159,7 +137,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">{error}</div>
+        <ErrorCard message={error} />
       </div>
     )
   }
@@ -169,8 +147,8 @@ export default function Dashboard() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Total Farms" value={summary.total_farms} accent="text-emerald-600" />
         <MetricCard title="Total Fields" value={summary.total_fields} accent="text-slate-900" />
-        <MetricCard title="Avg Productivity Score" value={`${summary.avg_productivity_score.toFixed(1)}%`} accent="text-emerald-600" />
-        <MetricCard title="Total Subsidy (AZN)" value={summary.total_subsidy_allocated_azn.toLocaleString()} accent="text-slate-900" />
+        <MetricCard title="Avg Productivity Score" value={`${formatNumber(summary.avg_productivity_score, 1)}%`} accent="text-emerald-600" />
+        <MetricCard title="Total Subsidy (AZN)" value={formatNumber(summary.total_subsidy_allocated_azn, 0)} accent="text-slate-900" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -255,12 +233,10 @@ export default function Dashboard() {
                   <td className="px-5 py-4 text-sm font-medium text-slate-900">{farm.name}</td>
                   <td className="px-5 py-4 text-sm text-slate-600">{farm.region}</td>
                   <td className="px-5 py-4 text-sm text-slate-600">{farm.cropTypes.length ? farm.cropTypes.join(', ') : '—'}</td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{farm.avg_productivity_score.toFixed(1)}%</td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{farm.subsidyAllocated.toLocaleString(undefined, { maximumFractionDigits: 2 })} AZN</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{formatNumber(farm.avg_productivity_score, 1)}%</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{formatNumber(farm.subsidyAllocated, 2)} AZN</td>
                   <td className="px-5 py-4 text-sm">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ${tierClasses(farm.creditTier)}`}>
-                      Tier {farm.creditTier}
-                    </span>
+                    <Badge status={farm.creditTier}>Tier {farm.creditTier}</Badge>
                   </td>
                 </tr>
               ))}

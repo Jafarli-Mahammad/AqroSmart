@@ -6,7 +6,7 @@ from app.database import Base
 class SatelliteSnapshot(Base):
     __tablename__ = "satellite_snapshots"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
     date = Column(Date)
     ndvi = Column(Float)
     ndwi = Column(Float)

@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import client from '../api/client'
-
-function Spinner() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-    </div>
-  )
-}
+import Spinner from '../components/common/Spinner'
+import ErrorCard from '../components/common/ErrorCard'
+import { formatNumber } from '../utils/format'
 
 function TierBadge({ tier, score }) {
   const classes = {
@@ -21,7 +16,7 @@ function TierBadge({ tier, score }) {
     <div className={`inline-flex flex-col items-center rounded-3xl px-6 py-5 ring-1 ${classes[tier] || classes.D}`}>
       <div className="text-5xl font-semibold tracking-tight">{tier || 'D'}</div>
       <div className="mt-1 text-sm font-medium">Risk Tier</div>
-      <div className="mt-2 text-2xl font-semibold">{Number(score || 0).toFixed(1)}</div>
+      <div className="mt-2 text-2xl font-semibold">{formatNumber(score || 0, 1)}</div>
       <div className="text-xs uppercase tracking-[0.2em] opacity-70">Final Score</div>
     </div>
   )
@@ -33,7 +28,7 @@ function ScoreBar({ label, value }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-slate-600">{label}</span>
-        <span className="font-semibold text-slate-900">{numeric.toFixed(1)}</span>
+        <span className="font-semibold text-slate-900">{formatNumber(numeric, 1)}</span>
       </div>
       <div className="h-3 rounded-full bg-slate-100">
         <div className="h-3 rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${numeric}%` }} />
@@ -76,7 +71,7 @@ export default function CreditScoring() {
           setSelectedFarmerId(String(firstFarmer.farmer_id))
         }
       } catch (error) {
-        if (mounted) setMessage(error?.response?.data?.detail || 'Unable to load farmers')
+        if (mounted) setMessage(error?.response?.data?.message || 'Unable to load farmers')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -120,7 +115,7 @@ export default function CreditScoring() {
         const response = await client.get(`/credit-score/${selectedFarmerId}`)
         if (mounted) setCreditScore(response.data)
       } catch (error) {
-        if (mounted) setMessage(error?.response?.data?.detail || 'Unable to load credit score')
+        if (mounted) setMessage(error?.response?.data?.message || 'Unable to load credit score')
       } finally {
         if (mounted) setBusy(false)
       }
@@ -161,7 +156,7 @@ export default function CreditScoring() {
             </select>
           </label>
         </div>
-        {message ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{message}</div> : null}
+        {message ? <ErrorCard message={message} /> : null}
       </div>
 
       {busy || !creditScore || !selectedFarmer ? (

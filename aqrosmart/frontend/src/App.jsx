@@ -1,16 +1,19 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
-import Dashboard from './pages/Dashboard'
-import FarmDetail from './pages/FarmDetail'
-import FieldAnalysis from './pages/FieldAnalysis'
-import SimulationControl from './pages/SimulationControl'
-import IrrigationHub from './pages/IrrigationHub'
-import SubsidyEngine from './pages/SubsidyEngine'
-import CreditScoring from './pages/CreditScoring'
-import AdminDemo from './pages/AdminDemo'
+import Spinner from './components/common/Spinner'
+import ErrorBoundary from './components/common/ErrorBoundary'
 import useScenarioStore from './store/scenarioStore'
+
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const FarmDetail = lazy(() => import('./pages/FarmDetail'))
+const FieldAnalysis = lazy(() => import('./pages/FieldAnalysis'))
+const SimulationControl = lazy(() => import('./pages/SimulationControl'))
+const IrrigationHub = lazy(() => import('./pages/IrrigationHub'))
+const SubsidyEngine = lazy(() => import('./pages/SubsidyEngine'))
+const CreditScoring = lazy(() => import('./pages/CreditScoring'))
+const AdminDemo = lazy(() => import('./pages/AdminDemo'))
 
 function AppLayout() {
   const presentationMode = useScenarioStore((state) => state.presentationMode)
@@ -39,18 +42,24 @@ function AppLayout() {
 }
 
 function App() {
+  const withBoundary = (component, message) => (
+    <ErrorBoundary message={message}>
+      <Suspense fallback={<Spinner />}>{component}</Suspense>
+    </ErrorBoundary>
+  )
+
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/farms/:farmId" element={<FarmDetail />} />
-          <Route path="/fields/:fieldId" element={<FieldAnalysis />} />
-          <Route path="/simulation" element={<SimulationControl />} />
-          <Route path="/irrigation" element={<IrrigationHub />} />
-          <Route path="/subsidy" element={<SubsidyEngine />} />
-          <Route path="/credit" element={<CreditScoring />} />
-          <Route path="/admin" element={<AdminDemo />} />
+          <Route path="/" element={withBoundary(<Dashboard />, 'Dashboard section failed to render.')} />
+          <Route path="/farms/:farmId" element={withBoundary(<FarmDetail />, 'Farm details failed to render.')} />
+          <Route path="/fields/:fieldId" element={withBoundary(<FieldAnalysis />, 'Field analysis failed to render.')} />
+          <Route path="/simulation" element={withBoundary(<SimulationControl />, 'Simulation section failed to render.')} />
+          <Route path="/irrigation" element={withBoundary(<IrrigationHub />, 'Irrigation section failed to render.')} />
+          <Route path="/subsidy" element={withBoundary(<SubsidyEngine />, 'Subsidy section failed to render.')} />
+          <Route path="/credit" element={withBoundary(<CreditScoring />, 'Credit scoring section failed to render.')} />
+          <Route path="/admin" element={withBoundary(<AdminDemo />, 'Admin section failed to render.')} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

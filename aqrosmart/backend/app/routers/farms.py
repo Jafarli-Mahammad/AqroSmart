@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,11 +68,17 @@ class FarmDetailResponse(BaseModel):
 
 
 @router.get("", response_model=list[FarmListItem])
-async def list_farms(session: AsyncSession = Depends(get_db)) -> list[FarmListItem]:
+async def list_farms(
+    session: AsyncSession = Depends(get_db),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> list[FarmListItem]:
     farms = (
         await session.execute(
             select(
-                Farm,
+                Farm.id,
+                Farm.name,
+                Farm.region,
                 Farmer.id,
                 Farmer.name,
                 Farmer.years_active,
@@ -84,19 +90,21 @@ async def list_farms(session: AsyncSession = Depends(get_db)) -> list[FarmListIt
             .outerjoin(AnalysisRun, AnalysisRun.field_id == Field.id)
             .group_by(Farm.id, Farmer.id, Farmer.name, Farmer.years_active)
             .order_by(Farm.id.asc())
+            .limit(limit)
+            .offset(offset)
         )
     ).all()
 
     response: list[FarmListItem] = []
-    for farm, farmer_id, farmer_name, farmer_years_active, field_count, avg_productivity in farms:
+    for farm_id, farm_name, farm_region, farmer_id, farmer_name, farmer_years_active, field_count, avg_productivity in farms:
         response.append(
             FarmListItem(
-                id=farm.id,
-                name=farm.name,
+                id=farm_id,
+                name=farm_name,
                 farmer_id=farmer_id,
                 farmer_name=farmer_name,
                 farmer_years_active=farmer_years_active,
-                region=farm.region,
+                region=farm_region,
                 field_count=int(field_count or 0),
                 avg_productivity_score=round(float(avg_productivity or 0.0), 1),
             )

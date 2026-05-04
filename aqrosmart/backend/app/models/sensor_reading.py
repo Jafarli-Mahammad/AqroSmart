@@ -6,7 +6,7 @@ from app.database import Base
 class SensorReading(Base):
     __tablename__ = "sensor_readings"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
     timestamp = Column(DateTime(timezone=True))
     soil_moisture_pct = Column(Float)
     water_flow_lph = Column(Float)

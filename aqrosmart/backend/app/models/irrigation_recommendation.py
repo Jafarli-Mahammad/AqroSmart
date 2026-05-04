@@ -13,7 +13,7 @@ class UrgencyLevel(str, enum.Enum):
 class IrrigationRecommendation(Base):
     __tablename__ = "irrigation_recommendations"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
     timestamp = Column(DateTime(timezone=True))
     current_soil_moisture = Column(Float)
     target_soil_moisture = Column(Float)

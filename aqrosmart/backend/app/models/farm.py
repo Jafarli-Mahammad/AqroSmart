@@ -6,7 +6,7 @@ from app.database import Base
 class Farm(Base):
     __tablename__ = "farms"
     id = Column(Integer, primary_key=True, index=True)
-    farmer_id = Column(Integer, ForeignKey("farmers.id"))
+    farmer_id = Column(Integer, ForeignKey("farmers.id"), index=True)
     name = Column(String)
     total_area_ha = Column(Float)
     region = Column(String)

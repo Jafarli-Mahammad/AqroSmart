@@ -6,8 +6,8 @@ from app.database import Base
 class AnalysisRun(Base):
     __tablename__ = "analysis_runs"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
-    scenario_id = Column(Integer, ForeignKey("scenarios.id"), nullable=True)
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
+    scenario_id = Column(Integer, ForeignKey("scenarios.id"), nullable=True, index=True)
     timestamp = Column(DateTime(timezone=True))
     potential_yield_t = Column(Float)
     actual_yield_t = Column(Float)

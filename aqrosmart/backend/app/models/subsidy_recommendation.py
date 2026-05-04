@@ -6,8 +6,8 @@ from app.database import Base
 class SubsidyRecommendation(Base):
     __tablename__ = "subsidy_recommendations"
     id = Column(Integer, primary_key=True, index=True)
-    field_id = Column(Integer, ForeignKey("fields.id"))
-    analysis_run_id = Column(Integer, ForeignKey("analysis_runs.id"), nullable=True)
+    field_id = Column(Integer, ForeignKey("fields.id"), index=True)
+    analysis_run_id = Column(Integer, ForeignKey("analysis_runs.id"), nullable=True, index=True)
     base_subsidy_azn = Column(Float)
     performance_factor = Column(Float)
     efficiency_factor = Column(Float)
