@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
@@ -11,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation, plant_analysis
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, engine
 
 logger = logging.getLogger("aqrosmart")
 
@@ -24,10 +23,13 @@ if settings.SENTRY_DSN:
 
 app = FastAPI(title="AqroSmart API")
 
+cors_origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
+allow_all_origins = "*" in cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"] if allow_all_origins else cors_origins,
+    allow_credentials=not allow_all_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -65,8 +67,8 @@ async def not_found_handler(_: Request, __):
 @app.on_event("startup")
 async def verify_database_on_startup() -> None:
     try:
-        async with AsyncSessionLocal() as session:
-            await session.execute(text("SELECT 1"))
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
         logger.info("Database connected. Startup schema management is disabled; using existing PostgreSQL schema.")
     except SQLAlchemyError as exc:
         logger.critical("Database unavailable at startup.", exc_info=exc)

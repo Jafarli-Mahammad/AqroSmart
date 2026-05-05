@@ -13,10 +13,12 @@ backend/venv/
 # Virtualenv & environment files
 venv/
 .env
+.envrc
 .env.*
 .env.local
 .env.production
 *.env
+aqrosmart/.env
 
 # Node
 node_modules/
