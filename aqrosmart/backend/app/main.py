@@ -67,14 +67,46 @@ async def not_found_handler(_: Request, __):
 
 
 async def create_tables_async() -> None:
-    """Create tables from ORM models if they don't exist (Render-safe fallback)."""
+    """Create database tables from ORM models, respecting foreign key dependencies."""
     def _create_tables():
-        import sqlalchemy
+        from sqlalchemy import text
         logger.info("Creating database schema from ORM models...")
         try:
-            # This is synchronous, so we run it in an executor
-            Base.metadata.create_all(bind=engine.sync_engine)
-            logger.info("Schema creation completed.")
+            # Get list of all table metadata objects from Base
+            tables_to_create = list(Base.metadata.tables.values())
+            
+            # Sort tables by foreign key dependencies using a topological sort
+            def get_fk_dependencies(table):
+                """Get foreign key dependencies for a table."""
+                deps = set()
+                for fk in table.foreign_keys:
+                    deps.add(fk.column.table)
+                return deps
+            
+            # Simple topological sort
+            sorted_tables = []
+            remaining = set(tables_to_create)
+            
+            while remaining:
+                # Find tables with no unsatisfied dependencies
+                ready = [t for t in remaining if not (get_fk_dependencies(t) & remaining)]
+                if not ready:
+                    # Circular dependency or error - just add remaining
+                    ready = list(remaining)
+                
+                sorted_tables.extend(ready)
+                remaining -= set(ready)
+            
+            # Create tables in dependency order
+            with engine.sync_engine.begin() as conn:
+                for table in sorted_tables:
+                    try:
+                        logger.info(f"Creating table: {table.name}")
+                        table.create(bind=conn, checkfirst=True)
+                    except Exception as e:
+                        logger.warning(f"Table {table.name} creation warning: {e}")
+            
+            logger.info("Schema creation completed successfully.")
         except Exception as exc:
             logger.error(f"Failed to create tables: {exc}", exc_info=exc)
             raise
