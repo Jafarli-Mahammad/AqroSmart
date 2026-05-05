@@ -8,16 +8,14 @@ from prometheus_fastapi_instrumentator import Instrumentator
 import sentry_sdk
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
-from alembic.config import Config
-from alembic import command
-from pathlib import Path
 
 from app.config import settings
 from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation, plant_analysis
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, engine, Base
 from app.models.farm import Farm
 from app.models.scenario import Scenario
 from app.seed.seed import seed_data
+import app.models  # Import all models to register them with Base
 
 logger = logging.getLogger("aqrosmart")
 
@@ -68,57 +66,48 @@ async def not_found_handler(_: Request, __):
     return JSONResponse(status_code=404, content={"error": True, "message": "Resource not found", "code": "NOT_FOUND"})
 
 
-async def run_migrations_async() -> None:
-    """Run Alembic migrations asynchronously."""
-    def _run_migrations():
-        # Try to find alembic.ini in common locations
-        alembic_ini_paths = [
-            Path("/app/alembic.ini"),
-            Path("alembic.ini"),
-            Path(__file__).parent.parent / "alembic.ini",
-        ]
-        
-        alembic_ini = None
-        for path in alembic_ini_paths:
-            if path.exists():
-                alembic_ini = path
-                break
-        
-        if alembic_ini is None:
-            logger.warning("alembic.ini not found; skipping migrations (assuming pre-migrated schema)")
-            return
-        
-        logger.info(f"Using alembic.ini from {alembic_ini}")
-        alembic_cfg = Config(str(alembic_ini))
-        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-        command.upgrade(alembic_cfg, "head")
+async def create_tables_async() -> None:
+    """Create tables from ORM models if they don't exist (Render-safe fallback)."""
+    def _create_tables():
+        import sqlalchemy
+        logger.info("Creating database schema from ORM models...")
+        try:
+            # This is synchronous, so we run it in an executor
+            Base.metadata.create_all(bind=engine.sync_engine)
+            logger.info("Schema creation completed.")
+        except Exception as exc:
+            logger.error(f"Failed to create tables: {exc}", exc_info=exc)
+            raise
     
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _run_migrations)
+    await loop.run_in_executor(None, _create_tables)
 
 
 @app.on_event("startup")
 async def verify_database_on_startup() -> None:
     try:
+        # Test database connection
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
         
-        logger.info("Running Alembic migrations...")
-        await run_migrations_async()
-        logger.info("Migrations completed.")
+        logger.info("Database connected. Creating schema if needed...")
+        await create_tables_async()
         
+        # Seed data if database is empty
         async with AsyncSessionLocal() as session:
             farm_count = (await session.execute(select(func.count(Farm.id)))).scalar_one()
             scenario_count = (await session.execute(select(func.count(Scenario.id)))).scalar_one()
             if farm_count == 0 or scenario_count == 0:
-                logger.info("Database is empty on startup; seeding AqroSmart demo data.")
+                logger.info("Database is empty. Seeding AqroSmart demo data...")
                 await seed_data()
-                logger.info("Seeding completed.")
+                logger.info("Seeding completed successfully.")
+            else:
+                logger.info(f"Database ready: {farm_count} farms, {scenario_count} scenarios found.")
     except SQLAlchemyError as exc:
-        logger.critical("Database unavailable at startup. Shutting down.", exc_info=exc)
+        logger.critical("Database unavailable at startup.", exc_info=exc)
         raise RuntimeError("Database unavailable at startup") from exc
     except Exception as exc:
-        logger.critical("Startup failed: %s", exc, exc_info=exc)
+        logger.critical("Startup initialization failed.", exc_info=exc)
         raise RuntimeError(f"Startup failed: {exc}") from exc
 
 
