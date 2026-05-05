@@ -30,11 +30,21 @@ ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP WITH TI
 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS water_flow_lph FLOAT;
 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS air_temperature_c FLOAT;
 ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS rain_mm FLOAT;
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE satellite_snapshots ADD COLUMN IF NOT EXISTS date DATE;
+ALTER TABLE satellite_snapshots ADD COLUMN IF NOT EXISTS cloud_cover_pct FLOAT;
+ALTER TABLE satellite_snapshots ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE satellite_snapshots ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
 
 ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS date DATE;
 ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS max_temp_c FLOAT;
 ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS min_temp_c FLOAT;
+ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS rain_mm FLOAT;
 ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS wind_kmh FLOAT;
+ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE weather_snapshots ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
 
 ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP WITH TIME ZONE;
 ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS current_soil_moisture FLOAT;
@@ -42,19 +52,22 @@ ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS target_soil_mois
 ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS recommended_water_mm FLOAT;
 ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS estimated_savings_pct FLOAT;
 ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS recommendation_text VARCHAR;
+ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS urgency_level VARCHAR;
+ALTER TABLE irrigation_recommendations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
 
 ALTER TABLE subsidy_recommendations ADD COLUMN IF NOT EXISTS analysis_run_id INTEGER;
 ALTER TABLE subsidy_recommendations ADD COLUMN IF NOT EXISTS yield_alignment_factor FLOAT;
 ALTER TABLE subsidy_recommendations ADD COLUMN IF NOT EXISTS calculation_note VARCHAR;
+ALTER TABLE subsidy_recommendations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE;
 
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP WITH TIME ZONE;
+ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS productivity_score FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS subsidy_performance FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS consistency_score FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS climate_risk_score FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS irrigation_efficiency_score FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS final_score FLOAT;
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS explanation_text VARCHAR;
-ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS productivity_score FLOAT;
 
 -- 🔥 CRITICAL FIX FOR YOUR ERROR
 ALTER TABLE credit_score_results ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE;
@@ -121,14 +134,22 @@ SET
     timestamp = COALESCE(timestamp, recorded_at),
     water_flow_lph = COALESCE(water_flow_lph, water_flow_ml_min),
     air_temperature_c = COALESCE(air_temperature_c, temperature_c),
-    rain_mm = COALESCE(rain_mm, rainfall_mm);
+    rain_mm = COALESCE(rain_mm, rainfall_mm),
+    created_at = COALESCE(created_at, recorded_at);
+
+UPDATE satellite_snapshots
+SET
+    date = COALESCE(date, captured_at::date),
+    cloud_cover_pct = COALESCE(cloud_cover_pct, 15),
+    created_at = COALESCE(created_at, captured_at);
 
 UPDATE weather_snapshots
 SET
     date = COALESCE(date, recorded_at::date),
     max_temp_c = COALESCE(max_temp_c, temperature_c),
     min_temp_c = COALESCE(min_temp_c, temperature_c - 4),
-    wind_kmh = COALESCE(wind_kmh, wind_speed_kmh);
+    wind_kmh = COALESCE(wind_kmh, wind_speed_kmh),
+    created_at = COALESCE(created_at, recorded_at);
 
 UPDATE irrigation_recommendations
 SET
@@ -137,7 +158,13 @@ SET
     target_soil_moisture = COALESCE(target_soil_moisture, 65),
     recommended_water_mm = COALESCE(recommended_water_mm, water_needed_mm),
     estimated_savings_pct = COALESCE(estimated_savings_pct, 12),
-    recommendation_text = COALESCE(recommendation_text, 'Auto-generated irrigation recommendation');
+    recommendation_text = COALESCE(recommendation_text, 'Auto-generated irrigation recommendation'),
+    urgency_level = COALESCE(urgency_level, CASE
+        WHEN COALESCE(recommended_water_mm, water_needed_mm, 0) >= 35 THEN 'critical'
+        WHEN COALESCE(recommended_water_mm, water_needed_mm, 0) >= 20 THEN 'high'
+        WHEN COALESCE(recommended_water_mm, water_needed_mm, 0) >= 10 THEN 'medium'
+        ELSE 'low'
+    END);
 
 UPDATE subsidy_recommendations
 SET
