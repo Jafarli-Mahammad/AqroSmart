@@ -67,52 +67,51 @@ async def not_found_handler(_: Request, __):
 
 
 async def create_tables_async() -> None:
-    """Create database tables from ORM models, respecting foreign key dependencies."""
-    def _create_tables():
-        from sqlalchemy import text
-        logger.info("Creating database schema from ORM models...")
-        try:
-            # Get list of all table metadata objects from Base
-            tables_to_create = list(Base.metadata.tables.values())
-            
-            # Sort tables by foreign key dependencies using a topological sort
-            def get_fk_dependencies(table):
-                """Get foreign key dependencies for a table."""
-                deps = set()
-                for fk in table.foreign_keys:
-                    deps.add(fk.column.table)
-                return deps
-            
-            # Simple topological sort
-            sorted_tables = []
-            remaining = set(tables_to_create)
-            
-            while remaining:
-                # Find tables with no unsatisfied dependencies
-                ready = [t for t in remaining if not (get_fk_dependencies(t) & remaining)]
-                if not ready:
-                    # Circular dependency or error - just add remaining
-                    ready = list(remaining)
-                
-                sorted_tables.extend(ready)
-                remaining -= set(ready)
-            
-            # Create tables in dependency order
-            with engine.sync_engine.begin() as conn:
-                for table in sorted_tables:
-                    try:
-                        logger.info(f"Creating table: {table.name}")
-                        table.create(bind=conn, checkfirst=True)
-                    except Exception as e:
-                        logger.warning(f"Table {table.name} creation warning: {e}")
-            
-            logger.info("Schema creation completed successfully.")
-        except Exception as exc:
-            logger.error(f"Failed to create tables: {exc}", exc_info=exc)
-            raise
-    
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _create_tables)
+    """Create database tables using raw SQL text."""
+    logger.info("Creating database schema from ORM models...")
+    try:
+        from sqlalchemy.schema import CreateTable
+        from sqlalchemy.dialects import postgresql
+        
+        # Get all tables
+        tables_to_create = list(Base.metadata.tables.values())
+        
+        # Sort by foreign key dependencies
+        def get_fk_deps(table):
+            return {fk.column.table for fk in table.foreign_keys}
+        
+        sorted_tables = []
+        remaining = set(tables_to_create)
+        
+        while remaining:
+            ready = [t for t in remaining if not (get_fk_deps(t) & remaining)]
+            if not ready:
+                ready = list(remaining)
+            sorted_tables.extend(ready)
+            remaining -= set(ready)
+        
+        # Create tables as text SQL
+        async with engine.begin() as conn:
+            for table in sorted_tables:
+                try:
+                    # Generate raw SQL text
+                    create_stmt = CreateTable(table).compile(
+                        dialect=postgresql.dialect()
+                    )
+                    sql_text = text(str(create_stmt))
+                    logger.info(f"Creating table: {table.name}")
+                    await conn.execute(sql_text)
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "already exists" in error_str or "duplicate" in error_str:
+                        logger.info(f"Table {table.name} already exists")
+                    else:
+                        logger.warning(f"Table {table.name}: {e}")
+        
+        logger.info("Schema creation completed successfully.")
+    except Exception as exc:
+        logger.error(f"Failed to create tables: {exc}", exc_info=exc)
+        raise
 
 
 @app.on_event("startup")
