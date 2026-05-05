@@ -5,12 +5,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 import sentry_sdk
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation, plant_analysis
 from app.database import AsyncSessionLocal
+from app.models.farm import Farm
+from app.models.scenario import Scenario
+from app.seed.seed import seed_data
 
 logger = logging.getLogger("aqrosmart")
 
@@ -66,6 +69,11 @@ async def verify_database_on_startup() -> None:
     try:
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
+            farm_count = (await session.execute(select(func.count(Farm.id)))).scalar_one()
+            scenario_count = (await session.execute(select(func.count(Scenario.id)))).scalar_one()
+            if farm_count == 0 or scenario_count == 0:
+                logger.info("Database is empty on startup; seeding AqroSmart demo data.")
+                await seed_data()
     except SQLAlchemyError as exc:
         logger.critical("Database unavailable at startup. Shutting down.", exc_info=exc)
         raise RuntimeError("Database unavailable at startup") from exc
