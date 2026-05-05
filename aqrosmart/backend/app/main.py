@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation
+from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation, plant_analysis
 from app.database import AsyncSessionLocal
 
 logger = logging.getLogger("aqrosmart")
@@ -29,6 +29,7 @@ app.include_router(subsidy.router)
 app.include_router(irrigation.router)
 app.include_router(credit_score.router)
 app.include_router(simulation.router)
+app.include_router(plant_analysis.router)
 
 
 @app.exception_handler(Exception)

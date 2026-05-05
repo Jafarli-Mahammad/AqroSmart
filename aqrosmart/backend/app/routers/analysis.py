@@ -18,6 +18,7 @@ from app.models.satellite_snapshot import SatelliteSnapshot
 from app.models.subsidy_recommendation import SubsidyRecommendation
 from app.models.weather_snapshot import WeatherSnapshot
 from app.models.crop import Crop
+from app.models.plant_image_analysis import PlantImageAnalysis
 from app.services.simulation_engine import AnalysisResult as SimulationAnalysisResult
 from app.services.simulation_engine import get_scenario_by_slug, run_full_analysis
 from app.services.subsidy_engine import SubsidyBreakdown, calculate_subsidy
@@ -69,17 +70,31 @@ async def run_analysis(payload: AnalysisRunRequest, session: AsyncSession = Depe
         crop = SimpleNamespace(name=field.crop_type or "Unknown", typical_yield_per_ha=5.0, water_requirement_mm=350.0, growth_days=120, season="unknown")
 
     analysis_result = run_full_analysis(field, crop, get_scenario_by_slug(scenario.slug))
-    subsidy_breakdown = calculate_subsidy(analysis_result, field, SimpleNamespace(id=0, name="farmer"))
+    latest_plant_confidence = (
+        await session.execute(
+            select(PlantImageAnalysis.confidence_pct)
+            .where(PlantImageAnalysis.field_id == field.id)
+            .order_by(PlantImageAnalysis.analyzed_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    subsidy_breakdown = calculate_subsidy(
+        analysis_result,
+        field,
+        SimpleNamespace(id=0, name="farmer", region=None),
+        plant_confidence_pct=latest_plant_confidence,
+    )
 
     irrigation_mm = await calculate_irrigation(field.id)
     estimated_before = float(getattr(analysis_result.sensor_data, "water_flow_lph", 0.0) or 0.0)
     estimated_after = max(0.0, estimated_before - (irrigation_mm * 10.0))
+    savings_pct = ((estimated_before - estimated_after) / estimated_before * 100.0) if estimated_before > 0 else 0.0
     irrigation_result = IrrigationResult(
         recommended_water_mm=float(irrigation_mm),
         estimated_water_before_l=round(estimated_before, 2),
         estimated_water_after_l=round(estimated_after, 2),
         urgency_level="medium" if analysis_result.moisture_stress_score < 30 else "high",
-        recommendation_text="Apply irrigation to bring soil moisture back toward the target range.",
+        recommendation_text="Torpaq rütubətini hədəf aralığına qaytarmaq üçün mərhələli suvarma tətbiq edin.",
     )
 
     analysis_row = AnalysisRun(
@@ -114,7 +129,7 @@ async def run_analysis(payload: AnalysisRunRequest, session: AsyncSession = Depe
         current_soil_moisture=analysis_result.sensor_data.soil_moisture_pct,
         target_soil_moisture=70.0,
         recommended_water_mm=irrigation_result.recommended_water_mm,
-        estimated_savings_pct=max(0.0, 100.0 - irrigation_result.estimated_water_after_l),
+        estimated_savings_pct=max(0.0, round(savings_pct, 2)),
         recommendation_text=irrigation_result.recommendation_text,
         urgency_level=irrigation_result.urgency_level,
     )

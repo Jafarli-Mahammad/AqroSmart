@@ -22,6 +22,7 @@ from app.models import (  # noqa: F401 - imported to register ORM mappings
     SensorReading,
     SubsidyRecommendation,
     WeatherSnapshot,
+    PlantImageAnalysis,
 )
 from app.services.simulation_engine import generate_satellite_snapshot, generate_sensor_reading, get_scenario_by_slug
 
@@ -30,6 +31,8 @@ FARMERS = [
     {"name": "Murad Həsənov", "fin_code": "5XK2JH1", "region": "Zəngilan", "years_active": 12},
     {"name": "Aytən Quliyeva", "fin_code": "7MP4RT3", "region": "Füzuli", "years_active": 6},
     {"name": "Rauf Babayev", "fin_code": "2LN8YQ9", "region": "Ağdam", "years_active": 18},
+    {"name": "Leyla Məmmədova", "fin_code": "9TR6MK4", "region": "Qəbələ", "years_active": 9},
+    {"name": "Kamran Əliyev", "fin_code": "4GH7PL2", "region": "Şəki", "years_active": 14},
 ]
 
 FARMS = [
@@ -38,6 +41,8 @@ FARMS = [
     {"name": "Horadiz Green Belt Farm", "farmer_fin_code": "7MP4RT3", "region": "Füzuli", "district": "Horadiz", "total_area_ha": 26.0},
     {"name": "Alxanlı Terrace Farm", "farmer_fin_code": "7MP4RT3", "region": "Füzuli", "district": "Alxanlı", "total_area_ha": 14.0},
     {"name": "Xındırıstan Prosperity Farm", "farmer_fin_code": "2LN8YQ9", "region": "Ağdam", "district": "Xındırıstan", "total_area_ha": 33.5},
+    {"name": "Qəbələ Valley Farm", "farmer_fin_code": "9TR6MK4", "region": "Qəbələ", "district": "Vəndam", "total_area_ha": 21.0},
+    {"name": "Şəki Orchard Farm", "farmer_fin_code": "4GH7PL2", "region": "Şəki", "district": "Baş Göynük", "total_area_ha": 29.0},
 ]
 
 FIELDS = [
@@ -49,6 +54,8 @@ FIELDS = [
     {"name": "Alxanlı Wheat Plot", "farm_name": "Alxanlı Terrace Farm", "crop_type": "wheat", "area_ha": 5.1, "soil_type": "loam", "irrigation_type": "sprinkler", "latitude": 39.410, "longitude": 46.910, "ndvi_score": 0.61, "ndwi_score": 0.51},
     {"name": "Xındırıstan Cotton Block", "farm_name": "Xındırıstan Prosperity Farm", "crop_type": "cotton", "area_ha": 6.9, "soil_type": "sandy loam", "irrigation_type": "flood", "latitude": 39.920, "longitude": 46.930, "ndvi_score": 0.45, "ndwi_score": 0.39},
     {"name": "Xındırıstan Sunflower Edge", "farm_name": "Xındırıstan Prosperity Farm", "crop_type": "sunflower", "area_ha": 5.7, "soil_type": "loam", "irrigation_type": "drip", "latitude": 39.935, "longitude": 46.955, "ndvi_score": 0.79, "ndwi_score": 0.67},
+    {"name": "Qəbələ Hazelnut", "farm_name": "Qəbələ Valley Farm", "crop_type": "wheat", "area_ha": 4.8, "soil_type": "clay loam", "irrigation_type": "sprinkler", "latitude": 40.985, "longitude": 47.850, "ndvi_score": 0.69, "ndwi_score": 0.52},
+    {"name": "Şəki Orchard Block", "farm_name": "Şəki Orchard Farm", "crop_type": "grape", "area_ha": 6.1, "soil_type": "loam", "irrigation_type": "drip", "latitude": 41.200, "longitude": 47.170, "ndvi_score": 0.76, "ndwi_score": 0.57},
 ]
 
 CROPS = [
@@ -60,13 +67,13 @@ CROPS = [
 ]
 
 SCENARIOS = [
-    {"slug": "healthy_field", "name": "Healthy Field", "description": "Baseline healthy crop conditions.", "weather_modifier": 1.0, "soil_moisture_modifier": 1.1, "ndvi_modifier": 1.05, "yield_modifier": 0.93, "is_active": True},
-    {"slug": "drought_stress", "name": "Drought Stress", "description": "Water stress and low moisture conditions.", "weather_modifier": 0.7, "soil_moisture_modifier": 0.5, "ndvi_modifier": 0.6, "yield_modifier": 0.55, "is_active": False},
-    {"slug": "disease_outbreak", "name": "Disease Outbreak", "description": "Lower vegetation health due to disease pressure.", "weather_modifier": 0.9, "soil_moisture_modifier": 1.0, "ndvi_modifier": 0.5, "yield_modifier": 0.65, "is_active": False},
-    {"slug": "irrigation_recovery", "name": "Irrigation Recovery", "description": "Field recovering after irrigation intervention.", "weather_modifier": 1.0, "soil_moisture_modifier": 1.2, "ndvi_modifier": 0.8, "yield_modifier": 0.80, "is_active": False},
-    {"slug": "high_efficiency", "name": "High Efficiency", "description": "Optimized irrigation and weather performance.", "weather_modifier": 1.1, "soil_moisture_modifier": 1.15, "ndvi_modifier": 1.1, "yield_modifier": 0.95, "is_active": False},
-    {"slug": "low_efficiency", "name": "Low Efficiency", "description": "Reduced field efficiency and output.", "weather_modifier": 0.9, "soil_moisture_modifier": 0.8, "ndvi_modifier": 0.85, "yield_modifier": 0.70, "is_active": False},
-    {"slug": "subsidy_improvement", "name": "Subsidy Improvement", "description": "Improved subsidy eligibility scenario.", "weather_modifier": 1.05, "soil_moisture_modifier": 1.05, "ndvi_modifier": 1.05, "yield_modifier": 0.90, "is_active": False},
+    {"slug": "healthy_field", "name": "Sağlam Sahə", "description": "Stabil rütubət və sağlam vegetasiya üçün baza ssenarisi.", "weather_modifier": 1.0, "soil_moisture_modifier": 1.1, "ndvi_modifier": 1.05, "yield_modifier": 0.93, "is_active": True},
+    {"slug": "drought_stress", "name": "Quraqlıq Stresi", "description": "Su çatışmazlığı və aşağı torpaq rütubəti şəraiti.", "weather_modifier": 0.7, "soil_moisture_modifier": 0.5, "ndvi_modifier": 0.6, "yield_modifier": 0.55, "is_active": False},
+    {"slug": "disease_outbreak", "name": "Xəstəlik Ocağı", "description": "Xəstəlik təzyiqinə görə vegetasiya sağlamlığında azalma.", "weather_modifier": 0.9, "soil_moisture_modifier": 1.0, "ndvi_modifier": 0.5, "yield_modifier": 0.65, "is_active": False},
+    {"slug": "irrigation_recovery", "name": "Suvarma Bərpası", "description": "Suvarma müdaxiləsindən sonra sahənin bərpa ssenarisi.", "weather_modifier": 1.0, "soil_moisture_modifier": 1.2, "ndvi_modifier": 0.8, "yield_modifier": 0.80, "is_active": False},
+    {"slug": "high_efficiency", "name": "Yüksək Səmərəlilik", "description": "Optimallaşdırılmış suvarma və iqlim performansı.", "weather_modifier": 1.1, "soil_moisture_modifier": 1.15, "ndvi_modifier": 1.1, "yield_modifier": 0.95, "is_active": False},
+    {"slug": "low_efficiency", "name": "Aşağı Səmərəlilik", "description": "Sahə səmərəliliyinin və çıxışın azalması.", "weather_modifier": 0.9, "soil_moisture_modifier": 0.8, "ndvi_modifier": 0.85, "yield_modifier": 0.70, "is_active": False},
+    {"slug": "subsidy_improvement", "name": "Subsidiya Təkmilləşməsi", "description": "Subsidiya uyğunluğunu artıran ssenari.", "weather_modifier": 1.05, "soil_moisture_modifier": 1.05, "ndvi_modifier": 1.05, "yield_modifier": 0.90, "is_active": False},
 ]
 
 
@@ -101,6 +108,7 @@ async def _replace_field_series(session, field_id: int) -> None:
     await session.execute(delete(SensorReading).where(SensorReading.field_id == field_id))
     await session.execute(delete(SatelliteSnapshot).where(SatelliteSnapshot.field_id == field_id))
     await session.execute(delete(WeatherSnapshot).where(WeatherSnapshot.field_id == field_id))
+    await session.execute(delete(PlantImageAnalysis).where(PlantImageAnalysis.field_id == field_id))
 
 
 async def seed_data() -> None:
@@ -137,6 +145,7 @@ async def seed_data() -> None:
                 )
 
             await session.flush()
+
             farm_by_name = _as_key_map(farm_rows, "name")
 
             for farmer in farmer_rows:
@@ -184,15 +193,16 @@ async def seed_data() -> None:
                     await _upsert_one(
                         session,
                         Field,
-                        # {"farm_id": farm_by_name[field_data["farm_name"]].id, "name": field_data["name"]},
-                        {"farm_id": farm_by_name[field_data["farm_name"]].id},
                         {
+                            "farm_id": farm_by_name[field_data["farm_name"]].id,
                             "crop_type": field_data["crop_type"],
+                            "latitude": field_data["latitude"],
+                            "longitude": field_data["longitude"],
+                        },
+                        {
                             "area_ha": field_data["area_ha"],
                             "soil_type": field_data["soil_type"],
                             "irrigation_type": field_data["irrigation_type"],
-                            "latitude": field_data["latitude"],
-                            "longitude": field_data["longitude"],
                             "ndvi_score": field_data["ndvi_score"],
                             "ndwi_score": field_data["ndwi_score"],
                         },
@@ -257,6 +267,23 @@ async def seed_data() -> None:
                             drought_index=round(min(100.0, 18.0 + day_index * 2.2), 2),
                         )
                     )
+
+            for idx, field in enumerate(field_rows[:3]):
+                diagnosis = [
+                    ("Healthy", 92.4, 95.0, ["Bitki sağlamdır, cari rejimi davam etdirin."]),
+                    ("Late blight", 86.2, 34.7, ["Yoluxmuş yarpaqları ayırın.", "Növbəti 24 saatda aqronom yoxlaması edin."]),
+                    ("Water stress", 73.5, 48.3, ["Suvarma intervalını sıxlaşdırın.", "Torpaq rütubətini gündəlik izləyin."]),
+                ][idx]
+                session.add(
+                    PlantImageAnalysis(
+                        field_id=field.id,
+                        image_path=f"/app/uploads/plant_images/sample_{idx + 1}.jpg",
+                        disease_detected=diagnosis[0],
+                        confidence_pct=diagnosis[1],
+                        health_score=diagnosis[2],
+                        recommendations=diagnosis[3],
+                    )
+                )
 
             await session.flush()
 

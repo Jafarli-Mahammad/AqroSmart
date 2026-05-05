@@ -64,4 +64,12 @@ async def get_credit_score(farmer_id: int, session: AsyncSession = Depends(get_d
             }
         )
 
-    return calculate_credit_score({"name": farmer.name, "irrigation_type": None}, payloads)
+    return calculate_credit_score(
+        {
+            "name": farmer.name,
+            "irrigation_type": None,
+            "region": farmer.region,
+            "years_active": farmer.years_active,
+        },
+        payloads,
+    )

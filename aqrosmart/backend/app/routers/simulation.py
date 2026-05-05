@@ -18,9 +18,11 @@ from app.models.scenario import Scenario
 from app.models.sensor_reading import SensorReading
 from app.models.subsidy_recommendation import SubsidyRecommendation
 from app.models.weather_snapshot import WeatherSnapshot
+from app.models.plant_image_analysis import PlantImageAnalysis
 from app.services.simulation_engine import get_scenario_by_slug, run_full_analysis
 from app.models.crop import Crop
 from app.services.response_cache import response_cache
+from app.services.subsidy_engine import calculate_subsidy
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
 _reset_lock = asyncio.Lock()
@@ -117,11 +119,52 @@ async def _seed_field_data(session: AsyncSession) -> tuple[int, int, int]:
     return len(sensor_rows), len(satellite_rows), len(weather_rows)
 
 
-@router.get("/state", response_model=SimulationStateResponse)
-async def get_simulation_state(
-    session: AsyncSession = Depends(get_db),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
+async def _refresh_subsidy_for_active_scenario(session: AsyncSession) -> None:
+    active_slug = (
+        await session.execute(select(Scenario.slug).where(Scenario.is_active.is_(True)).limit(1))
+    ).scalar_one_or_none() or "healthy_field"
+    scenario_config = get_scenario_by_slug(active_slug)
+    fields = (await session.execute(select(Field).order_by(Field.id.asc()))).scalars().all()
+    if not fields:
+        return
+    for field in fields:
+        crop = (
+            await session.execute(select(Crop).where(Crop.field_id == field.id).order_by(Crop.id.desc()).limit(1))
+        ).scalar_one_or_none() or SimpleNamespace(name=field.crop_type or "unknown", typical_yield_per_ha=5.0)
+        analysis_result = run_full_analysis(field, crop, scenario_config)
+        latest_plant_confidence = (
+            await session.execute(
+                select(PlantImageAnalysis.confidence_pct)
+                .where(PlantImageAnalysis.field_id == field.id)
+                .order_by(PlantImageAnalysis.analyzed_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        subsidy = calculate_subsidy(analysis_result, field, SimpleNamespace(region=None), plant_confidence_pct=latest_plant_confidence)
+        latest_analysis_row = (
+            await session.execute(
+                select(AnalysisRun.id).where(AnalysisRun.field_id == field.id).order_by(AnalysisRun.timestamp.desc().nullslast()).limit(1)
+            )
+        ).scalar_one_or_none()
+        session.add(
+            SubsidyRecommendation(
+                field_id=field.id,
+                analysis_run_id=latest_analysis_row,
+                base_subsidy_azn=subsidy.base_subsidy_azn,
+                performance_factor=subsidy.performance_factor,
+                efficiency_factor=subsidy.efficiency_factor,
+                water_use_factor=subsidy.water_use_factor,
+                yield_alignment_factor=subsidy.yield_alignment_factor,
+                final_subsidy_azn=subsidy.final_subsidy_azn,
+                calculation_note=subsidy.calculation_note,
+            )
+        )
+
+
+async def _get_simulation_state(
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0,
 ) -> SimulationStateResponse:
     cache_key = f"simulation:state:{limit}:{offset}"
     cached = response_cache.get(cache_key)
@@ -140,6 +183,15 @@ async def get_simulation_state(
     return result
 
 
+@router.get("/state", response_model=SimulationStateResponse)
+async def get_simulation_state(
+    session: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> SimulationStateResponse:
+    return await _get_simulation_state(session, limit=limit, offset=offset)
+
+
 @router.post("/scenario/{scenario_slug}", response_model=SimulationStateResponse)
 async def set_active_scenario(scenario_slug: str, session: AsyncSession = Depends(get_db)) -> SimulationStateResponse:
     scenario = (await session.execute(select(Scenario).where(Scenario.slug == scenario_slug))).scalar_one_or_none()
@@ -148,10 +200,11 @@ async def set_active_scenario(scenario_slug: str, session: AsyncSession = Depend
 
     await session.execute(update(Scenario).values(is_active=False))
     scenario.is_active = True
+    await _refresh_subsidy_for_active_scenario(session)
     await session.commit()
     response_cache.invalidate_prefix("simulation:state")
     response_cache.invalidate_prefix("dashboard:summary")
-    return await get_simulation_state(session)
+    return await _get_simulation_state(session)
 
 
 @router.post("/reset", response_model=SimulationResetResponse)

@@ -102,19 +102,26 @@ def calculate_credit_score(farmer: Any, analysis_results: list[Any]) -> CreditSc
 
     irrigation_type = _extract_irrigation_type(farmer, results)
     if irrigation_type == "drip":
-        irrigation_efficiency_score = 90.0
+        irrigation_efficiency_score = 92.0
     elif irrigation_type == "sprinkler":
-        irrigation_efficiency_score = 70.0
+        irrigation_efficiency_score = 76.0
     else:
-        irrigation_efficiency_score = 50.0
+        irrigation_efficiency_score = 56.0
+
+    region = str(_get_value(farmer, "region", "") or "").lower()
+    years_active = float(_get_value(farmer, "years_active", 0.0) or 0.0)
+    regional_bonus = 3.0 if region in {"zəngilan", "füzuli", "ağdam"} else 0.0
+    experience_score = _clamp(55.0 + years_active * 2.5, 55.0, 90.0)
 
     final_score = (
-        productivity_score * 0.30
-        + consistency_score * 0.25
-        + irrigation_efficiency_score * 0.20
-        + climate_risk_score * 0.15
+        productivity_score * 0.26
+        + consistency_score * 0.20
+        + irrigation_efficiency_score * 0.18
+        + climate_risk_score * 0.16
         + subsidy_performance * 0.10
+        + experience_score * 0.10
     )
+    final_score += regional_bonus
     final_score = _clamp(final_score, 0.0, 100.0)
 
     if final_score >= 80.0:
@@ -128,8 +135,8 @@ def calculate_credit_score(farmer: Any, analysis_results: list[Any]) -> CreditSc
 
     farmer_name = _get_value(farmer, "name", "the farmer")
     explanation_text = (
-        f"{farmer_name} has a {risk_tier}-tier credit profile based on recent field performance, consistency, and climate exposure. "
-        f"The score is supported by an average productivity level of {productivity_score:.1f}% and an irrigation profile that affects operating efficiency."
+        f"{farmer_name} üçün kredit profili {risk_tier} səviyyəsində qiymətləndirildi. "
+        f"Hesab məhsuldarlıq ({productivity_score:.1f}%), iqlim riski və suvarma səmərəliliyinə əsaslanır."
     )
 
     return CreditScoreBreakdown(

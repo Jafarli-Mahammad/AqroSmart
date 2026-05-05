@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { BadgeDollarSign, Sparkles, TrendingUp } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import client from '../api/client'
 import useScenarioStore from '../store/scenarioStore'
 import Spinner from '../components/common/Spinner'
 import ErrorCard from '../components/common/ErrorCard'
-import { formatNumber } from '../utils/format'
+import { formatCurrencyAzn, formatNumber } from '../utils/format'
+import { formatFieldLabel } from '../constants/azText'
 
 function fieldLabel(field) {
-  return `${field.name} · ${field.crop_type} · ${field.irrigation_type}`
+  return formatFieldLabel(field)
 }
 
 function effectLabel(value) {
-  if (value > 1) return 'Boosts subsidy'
-  if (value < 1) return 'Reduces subsidy'
-  return 'Neutral'
+  if (value > 1) return 'Subsidiyanı artırır'
+  if (value < 1) return 'Subsidiyanı azaldır'
+  return 'Neytral'
 }
 
 function effectIcon(value) {
@@ -25,22 +27,22 @@ function effectIcon(value) {
 function factorTooltip(name) {
   switch (name) {
     case 'base':
-      return 'Baseline allocation set at 120 AZN per hectare.'
+      return 'Baza ayrılması hektara görə AZN ilə hesablanır.'
     case 'performance':
-      return 'Based on actual vs potential yield.'
+      return 'Faktiki və potensial məhsuldarlıq nisbətinə əsaslanır.'
     case 'efficiency':
-      return 'Reflects irrigation system efficiency.'
+      return 'Suvarma sisteminin səmərəliliyini göstərir.'
     case 'water':
-      return 'Penalizes excessive water use or moisture stress.'
+      return 'Həddindən artıq su istifadəsi və ya rütubət stresinə düzəliş edir.'
     case 'yield':
-      return 'Rewards productivity above the 70% benchmark.'
+      return 'Məhsuldarlıq hədəfini keçən nəticələri stimullaşdırır.'
     default:
       return ''
   }
 }
 
 function formatAzn(value) {
-  return `${formatNumber(value || 0, 0)} AZN`
+  return formatCurrencyAzn(value || 0, 0)
 }
 
 export default function SubsidyEngine() {
@@ -77,7 +79,7 @@ export default function SubsidyEngine() {
           setSelectedFieldId(String(fieldOptions[0].id))
         }
       } catch (error) {
-        if (mounted) setMessage(error?.response?.data?.message || 'Unable to load fields')
+        if (mounted) setMessage(error?.response?.data?.message || 'Sahələr yüklənə bilmədi')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -99,7 +101,7 @@ export default function SubsidyEngine() {
       setRecommendation(response.data)
       return response.data
     } catch (error) {
-      setMessage(error?.response?.data?.message || 'Unable to load subsidy recommendation')
+      setMessage(error?.response?.data?.message || 'Subsidiya tövsiyəsi yüklənə bilmədi')
       return null
     } finally {
       setFetchingRecommendation(false)
@@ -143,27 +145,35 @@ export default function SubsidyEngine() {
       const refreshed = await loadRecommendation(selectedFieldId)
       setComparison({ before: beforeValue, after: afterValue || refreshed?.final_subsidy_azn || 0 })
     } catch (error) {
-      setMessage(error?.response?.data?.message || 'Unable to run subsidy improvement scenario')
+      setMessage(error?.response?.data?.message || 'Subsidiya təkmilləşmə ssenarisi işə salına bilmədi')
     } finally {
       setFetchingRecommendation(false)
     }
   }
 
   if (loading) {
-    return <Spinner />
+    return <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, idx) => <div key={idx} className="h-24 animate-pulse rounded-2xl bg-emerald-100/60" />)}</div>
+  }
+
+  if (!fields.length) {
+    return (
+      <div className="p-6">
+        <ErrorCard message="Subsidiya hesablaması üçün sahə tapılmadı. Seed məlumatlarını yenidən yükləyin." />
+      </div>
+    )
   }
 
   const deltaValue = comparison ? comparison.after - comparison.before : 0
 
   return (
     <div className="space-y-6 p-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/50">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dynamic Subsidy Engine</h1>
-        <p className="mt-1 text-sm text-slate-500">Field-by-field subsidy logic with visible factor contributions and scenario-based improvement.</p>
+      <div className="rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-500 to-emerald-700 p-6 text-white shadow-sm">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><BadgeDollarSign className="h-6 w-6" /> Dinamik subsidiya mühərriki</h1>
+        <p className="mt-1 text-sm text-amber-50">Sahə üzrə subsidiya hesablaması, amil təsirləri və ssenariyə əsaslanan təkmilləşmə.</p>
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <label className="text-sm font-medium text-slate-600">
-            Field
+            Sahə
             <select
               className="mt-1 block min-w-80 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none"
               value={selectedFieldId}
@@ -181,9 +191,9 @@ export default function SubsidyEngine() {
             type="button"
             onClick={runImprovementScenario}
             disabled={fetchingRecommendation}
-            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {fetchingRecommendation ? 'Running…' : 'Subsidy Improvement Scenario'}
+            {fetchingRecommendation ? 'İşlənir…' : <><TrendingUp className="h-4 w-4" /> Subsidiya təkmilləşmə ssenarisi</>}
           </button>
         </div>
 
@@ -192,11 +202,11 @@ export default function SubsidyEngine() {
 
       {recommendation ? (
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+          <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Subsidy Calculation Breakdown</h2>
-                <p className="text-sm text-slate-500">Stacked factor contribution from the live recommendation.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Subsidiya hesablamasının detalları</h2>
+                <p className="text-sm text-slate-500">Canlı tövsiyə üzrə amillərin yekun subsidiyaya təsiri.</p>
               </div>
             </div>
 
@@ -207,22 +217,22 @@ export default function SubsidyEngine() {
                   <XAxis type="number" tick={{ fill: '#475569', fontSize: 12 }} />
                   <YAxis type="category" dataKey="name" tick={{ fill: '#475569', fontSize: 12 }} width={80} />
                   <Tooltip formatter={(value, key) => [formatAzn(value), key]} />
-                  <Bar dataKey="base" stackId="a" fill="#cbd5e1" name="Base Subsidy" />
-                  <Bar dataKey="performance" stackId="a" fill="#34d399" name="Performance Factor" />
-                  <Bar dataKey="efficiency" stackId="a" fill="#10b981" name="Efficiency Factor" />
-                  <Bar dataKey="water" stackId="a" fill="#059669" name="Water Use Factor" />
-                  <Bar dataKey="yield" stackId="a" fill="#047857" name="Yield Alignment" />
+                  <Bar dataKey="base" stackId="a" fill="#fbbf24" name="Baza subsidiya" />
+                  <Bar dataKey="performance" stackId="a" fill="#34d399" name="Performans amili" />
+                  <Bar dataKey="efficiency" stackId="a" fill="#10b981" name="Səmərəlilik amili" />
+                  <Bar dataKey="water" stackId="a" fill="#059669" name="Su istifadəsi amili" />
+                  <Bar dataKey="yield" stackId="a" fill="#92400e" name="Məhsul uyğunluğu" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-5">
               {[
-                ['Base Subsidy', recommendation.base_subsidy_azn, 'Base allocation per hectare', 'base'],
-                ['Performance Factor', recommendation.performance_factor, factorTooltip('performance'), 'performance'],
-                ['Efficiency Factor', recommendation.efficiency_factor, factorTooltip('efficiency'), 'efficiency'],
-                ['Water Use Factor', recommendation.water_use_factor, factorTooltip('water'), 'water'],
-                ['Yield Alignment', recommendation.yield_alignment_factor, factorTooltip('yield'), 'yield'],
+                ['Baza subsidiya', recommendation.base_subsidy_azn, 'Hektar üzrə baza məbləğ', 'base'],
+                ['Performans amili', recommendation.performance_factor, factorTooltip('performance'), 'performance'],
+                ['Səmərəlilik amili', recommendation.efficiency_factor, factorTooltip('efficiency'), 'efficiency'],
+                ['Su istifadəsi amili', recommendation.water_use_factor, factorTooltip('water'), 'water'],
+                ['Məhsul uyğunluğu', recommendation.yield_alignment_factor, factorTooltip('yield'), 'yield'],
               ].map(([label, value, tip]) => (
                 <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3" title={tip}>
                   <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">{label}</div>
@@ -232,24 +242,24 @@ export default function SubsidyEngine() {
             </div>
 
             <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
-              <div className="text-sm font-medium text-emerald-700">Final Recommendation</div>
+              <div className="text-sm font-medium text-emerald-700">Yekun tövsiyə</div>
               <div className="mt-1 text-3xl font-semibold tracking-tight text-emerald-800">{formatAzn(recommendation.final_subsidy_azn)}</div>
             </div>
           </section>
 
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+          <section className="space-y-4 rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">What drives your subsidy?</h2>
-              <p className="text-sm text-slate-500">Factor-by-factor logic with the live values returned by the API.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Subsidiyanı hansı amillər formalaşdırır?</h2>
+                <p className="text-sm text-slate-500">API-dən gələn canlı dəyərlər üzrə addım-addım izah.</p>
             </div>
 
             <div className="space-y-3">
               {[
-                ['Base Subsidy', recommendation.base_subsidy_azn, 'Baseline allocation', recommendation.base_subsidy_azn / 100],
-                ['Performance Factor', recommendation.performance_factor, 'Based on yield ratio', recommendation.performance_factor],
-                ['Efficiency Factor', recommendation.efficiency_factor, 'Irrigation efficiency effect', recommendation.efficiency_factor],
-                ['Water Use Factor', recommendation.water_use_factor, 'Water-use efficiency effect', recommendation.water_use_factor],
-                ['Yield Alignment', recommendation.yield_alignment_factor, 'Alignment to target yield', recommendation.yield_alignment_factor],
+                ['Baza subsidiya', recommendation.base_subsidy_azn, 'Baza ayrılma', recommendation.base_subsidy_azn / 100],
+                ['Performans amili', recommendation.performance_factor, 'Məhsuldarlıq nisbətinə görə', recommendation.performance_factor],
+                ['Səmərəlilik amili', recommendation.efficiency_factor, 'Suvarma effektivliyi təsiri', recommendation.efficiency_factor],
+                ['Su istifadəsi amili', recommendation.water_use_factor, 'Su istifadəsi səmərəliliyi', recommendation.water_use_factor],
+                ['Məhsul uyğunluğu', recommendation.yield_alignment_factor, 'Hədəf məhsula uyğunluq', recommendation.yield_alignment_factor],
               ].map(([label, value, effect, numeric]) => (
                 <div key={label} className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
                   <div>
@@ -266,7 +276,7 @@ export default function SubsidyEngine() {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Calculation Note</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Hesablama qeydi</div>
               <p className="mt-2 text-sm leading-7 text-slate-700">{recommendation.calculation_note}</p>
             </div>
           </section>
@@ -277,7 +287,8 @@ export default function SubsidyEngine() {
 
       {comparison ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-          ↑ {deltaValue >= 0 ? '+' : '-'}{formatNumber(Math.abs(deltaValue), 0)} AZN with efficiency improvements
+          <Sparkles className="mr-1 inline h-4 w-4" />
+          ↑ {deltaValue >= 0 ? '+' : '-'}{formatNumber(Math.abs(deltaValue), 0)} AZN səmərəlilik təkmilləşməsi ilə
           <div className="mt-1 text-xs font-medium text-emerald-600">
             Before: {formatAzn(comparison.before)} · After: {formatAzn(comparison.after)}
           </div>

@@ -26,3 +26,4 @@ class Field(Base):
     analysis_runs = relationship("AnalysisRun", back_populates="field", lazy="selectin")
     subsidy_recommendations = relationship("SubsidyRecommendation", back_populates="field", lazy="selectin")
     irrigation_recommendations = relationship("IrrigationRecommendation", back_populates="field", lazy="selectin")
+    plant_image_analyses = relationship("PlantImageAnalysis", back_populates="field", lazy="selectin")

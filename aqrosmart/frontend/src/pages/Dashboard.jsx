@@ -1,29 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Line, LineChart } from 'recharts'
+import { CloudSun, Coins, Leaf, Sprout, Tractor, Users, Zap } from 'lucide-react'
 import client from '../api/client'
-import Spinner from '../components/common/Spinner'
 import ErrorCard from '../components/common/ErrorCard'
 import Badge from '../components/common/Badge'
-import { formatNumber } from '../utils/format'
+import { formatCurrencyAzn, formatNumber } from '../utils/format'
 
-function MetricCard({ title, value, accent }) {
+function MetricCard({ title, value, icon: Icon, accent = 'text-emerald-700' }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
-      <div className="text-sm font-medium text-slate-500">{title}</div>
+    <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium text-slate-500">{title}</div>
+        <Icon className="h-4 w-4 text-emerald-700" />
+      </div>
       <div className={`mt-2 text-3xl font-semibold tracking-tight ${accent}`}>{value}</div>
     </div>
   )
@@ -74,7 +64,7 @@ export default function Dashboard() {
         setFieldDetails(Object.fromEntries(details))
       } catch (requestError) {
         if (mounted) {
-          setError(requestError?.response?.data?.message || 'Failed to load dashboard data')
+          setError(requestError?.response?.data?.message || 'İdarə paneli məlumatları yüklənə bilmədi')
         }
       } finally {
         if (mounted) {
@@ -99,17 +89,6 @@ export default function Dashboard() {
     [summary],
   )
 
-  const radialGaugeData = useMemo(
-    () => [
-      {
-        name: 'Average Productivity',
-        value: summary?.avg_productivity_score || 0,
-        fill: '#16a34a',
-      },
-    ],
-    [summary],
-  )
-
   const farmRows = useMemo(() => {
     return farms.map((farm) => {
       const detail = fieldDetails[farm.id]
@@ -128,10 +107,19 @@ export default function Dashboard() {
         creditTier,
       }
     })
-  }, [farmDetails, farms])
+  }, [fieldDetails, farms])
+
+  const subsidyByRegion = useMemo(() => {
+    const grouped = {}
+    farmRows.forEach((farm) => {
+      const key = farm.region || 'Digər'
+      grouped[key] = (grouped[key] || 0) + farm.subsidyAllocated
+    })
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }))
+  }, [farmRows])
 
   if (loading) {
-    return <Spinner />
+    return <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, idx) => <div key={idx} className="h-28 animate-pulse rounded-2xl bg-emerald-100/60" />)}</div>
   }
 
   if (error) {
@@ -144,19 +132,25 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 p-6">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold"><CloudSun className="h-4 w-4" /> Hava xəbərdarlığı</div>
+          <div className="text-xs font-medium">{summary?.avg_productivity_score < 55 ? 'Quraqlıq riski yüksəlib' : 'Hava şəraiti stabildir'}</div>
+        </div>
+      </section>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total Farms" value={summary.total_farms} accent="text-emerald-600" />
-        <MetricCard title="Total Fields" value={summary.total_fields} accent="text-slate-900" />
-        <MetricCard title="Avg Productivity Score" value={`${formatNumber(summary.avg_productivity_score, 1)}%`} accent="text-emerald-600" />
-        <MetricCard title="Total Subsidy (AZN)" value={formatNumber(summary.total_subsidy_allocated_azn, 0)} accent="text-slate-900" />
+        <MetricCard title="Ümumi təsərrüfat" value={summary.total_farms} icon={Tractor} />
+        <MetricCard title="Ümumi sahə" value={summary.total_fields} icon={Sprout} accent="text-slate-900" />
+        <MetricCard title="Fermer sayı" value={summary.total_farmers || 0} icon={Users} />
+        <MetricCard title="Ümumi subsidiya" value={formatCurrencyAzn(summary.total_subsidy_allocated_azn, 0)} icon={Coins} accent="text-slate-900" />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Crop Distribution</h2>
-              <p className="text-sm text-slate-500">Field count by crop across the active portfolio</p>
+              <h2 className="text-lg font-semibold text-slate-900">Məhsul bölgüsü</h2>
+              <p className="text-sm text-slate-500">Aktiv portfeldə məhsul növlərinə görə sahə sayı</p>
             </div>
           </div>
           <div className="h-80">
@@ -166,9 +160,9 @@ export default function Dashboard() {
                 <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 12 }} />
                 <YAxis tick={{ fill: '#475569', fontSize: 12 }} allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="#16a34a">
+                <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="#059669">
                   {cropDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${entry.name}-${index}`} fill={index % 2 === 0 ? '#16a34a' : '#22c55e'} />
+                    <Cell key={`cell-${entry.name}-${index}`} fill={index % 2 === 0 ? '#059669' : '#F59E0B'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -176,55 +170,86 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50">
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">Average Productivity Gauge</h2>
-              <p className="text-sm text-slate-500">Rolling productivity score across all analysis runs</p>
+              <h2 className="text-lg font-semibold text-slate-900">Su qənaəti trendi</h2>
+              <p className="text-sm text-slate-500">Son ölçmələr üzrə təxmini yaxşılaşma</p>
             </div>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                cx="50%"
-                cy="60%"
-                innerRadius="70%"
-                outerRadius="100%"
-                barSize={18}
-                data={radialGaugeData}
-                startAngle={180}
-                endAngle={0}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-                <RadialBar background dataKey="value" cornerRadius={999} fill="#16a34a" />
+              <LineChart data={farmRows.slice(0, 8).map((farm, index) => ({ ad: `Həftə ${index + 1}`, dəyər: Math.max(8, Math.min(35, (farm.avg_productivity_score || 0) / 3)) }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#d6d3d1" />
+                <XAxis dataKey="ad" tick={{ fill: '#475569', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
                 <Tooltip />
-                <Legend verticalAlign="bottom" />
-              </RadialBarChart>
+                <Line type="monotone" dataKey="dəyər" stroke="#059669" strokeWidth={3} dot={{ r: 4, fill: '#059669' }} />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50">
+      <section className="grid gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"><Leaf className="h-4 w-4 text-emerald-700" /> Təsərrüfat xəritə görünüşü</div>
+          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50 to-amber-50 text-center">
+            <div>
+              <div className="text-2xl">📍</div>
+              <p className="mt-2 text-sm text-slate-600">Xəritə inteqrasiyası hazırdır (leaflet/mapbox əlavə edilə bilər)</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="mb-3 text-sm font-semibold text-slate-700">Subsidiya bölgüsü (region üzrə)</div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={subsidyByRegion} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90}>
+                  {subsidyByRegion.map((_, index) => (
+                    <Cell key={index} fill={['#059669', '#F59E0B', '#92400E', '#22c55e'][index % 4]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-emerald-100 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">Farm Summary</h2>
-          <p className="text-sm text-slate-500">Live portfolio snapshot from the AqroSmart API</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Top təsərrüfatlar</h2>
+              <p className="text-sm text-slate-500">Liderlər cədvəli və sürətli keçidlər</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => navigate('/plant-health')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700">Yeni analiz</button>
+              <button onClick={() => navigate('/simulation')} className="rounded-xl border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50">Ssenari dəyiş</button>
+              <button onClick={() => navigate('/admin')} className="rounded-xl border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-50">Hesabat yarat</button>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.15em] text-slate-500">
               <tr>
-                <th className="px-5 py-3 font-semibold">Farm Name</th>
+                <th className="px-5 py-3 font-semibold">Təsərrüfat adı</th>
                 <th className="px-5 py-3 font-semibold">Region</th>
-                <th className="px-5 py-3 font-semibold">Crop Types</th>
-                <th className="px-5 py-3 font-semibold">Avg Productivity</th>
-                <th className="px-5 py-3 font-semibold">Subsidy Allocated</th>
-                <th className="px-5 py-3 font-semibold">Credit Tier</th>
+                <th className="px-5 py-3 font-semibold">Məhsul növləri</th>
+                <th className="px-5 py-3 font-semibold">Orta məhsuldarlıq</th>
+                <th className="px-5 py-3 font-semibold">Ayrılmış subsidiya</th>
+                <th className="px-5 py-3 font-semibold">Kredit səviyyəsi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {farmRows.map((farm) => (
+              {farmRows
+                .slice()
+                .sort((a, b) => (b.avg_productivity_score || 0) - (a.avg_productivity_score || 0))
+                .map((farm) => (
                 <tr
                   key={farm.id}
                   onClick={() => navigate(`/farms/${farm.id}`)}
@@ -234,14 +259,32 @@ export default function Dashboard() {
                   <td className="px-5 py-4 text-sm text-slate-600">{farm.region}</td>
                   <td className="px-5 py-4 text-sm text-slate-600">{farm.cropTypes.length ? farm.cropTypes.join(', ') : '—'}</td>
                   <td className="px-5 py-4 text-sm text-slate-600">{formatNumber(farm.avg_productivity_score, 1)}%</td>
-                  <td className="px-5 py-4 text-sm text-slate-600">{formatNumber(farm.subsidyAllocated, 2)} AZN</td>
+                  <td className="px-5 py-4 text-sm text-slate-600">{formatCurrencyAzn(farm.subsidyAllocated, 2)}</td>
                   <td className="px-5 py-4 text-sm">
-                    <Badge status={farm.creditTier}>Tier {farm.creditTier}</Badge>
+                    <Badge status={farm.creditTier}>Səviyyə {farm.creditTier}</Badge>
                   </td>
                 </tr>
               ))}
+              {!farmRows.length ? (
+                <tr>
+                  <td className="px-5 py-6 text-sm text-slate-500" colSpan={6}>
+                    Təsərrüfat məlumatı tapılmadı. Zəhmət olmasa seed əməliyyatını yenidən icra edin.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
+        </div>
+      </section>
+      <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"><Zap className="h-4 w-4 text-amber-600" /> Son analiz axını</div>
+        <div className="space-y-2">
+          {farmRows.slice(0, 4).map((farm) => (
+            <div key={farm.id} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <span className="font-medium text-slate-700">{farm.name}</span>
+              <span className="text-slate-500">{formatNumber(farm.avg_productivity_score, 1)}% məhsuldarlıq</span>
+            </div>
+          ))}
         </div>
       </section>
     </div>

@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: postgres:15
@@ -28,6 +27,19 @@ services:
       db:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --workers 1
+
+  seed:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/aqrosmart
+    depends_on:
+      db:
+        condition: service_healthy
+    command: python seed_runner.py
+    profiles:
+      - tools
 
   frontend:
     build: ./frontend

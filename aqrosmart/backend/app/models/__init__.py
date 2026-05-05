@@ -10,3 +10,4 @@ from app.models.subsidy_recommendation import SubsidyRecommendation
 from app.models.irrigation_recommendation import IrrigationRecommendation
 from app.models.credit_score_result import CreditScoreResult
 from app.models.scenario import Scenario
+from app.models.plant_image_analysis import PlantImageAnalysis

@@ -51,31 +51,31 @@ def _seed_from_parts(*parts: object) -> int:
 def get_scenario_by_slug(slug: str) -> ScenarioConfig:
     scenarios = {
         "healthy_field": ScenarioConfig(
-            slug="healthy_field", name="Healthy Field", weather_modifier=1.0, 
+            slug="healthy_field", name="Sağlam Sahə", weather_modifier=1.0, 
             soil_moisture_modifier=1.1, ndvi_modifier=1.05, yield_modifier=0.93, drought_index=0.2, is_extreme=False
         ),
         "drought_stress": ScenarioConfig(
-            slug="drought_stress", name="Drought Stress", weather_modifier=0.7, 
+            slug="drought_stress", name="Quraqlıq Stresi", weather_modifier=0.7, 
             soil_moisture_modifier=0.5, ndvi_modifier=0.6, yield_modifier=0.55, drought_index=0.9, is_extreme=True
         ),
         "disease_outbreak": ScenarioConfig(
-            slug="disease_outbreak", name="Disease Outbreak", weather_modifier=0.9, 
+            slug="disease_outbreak", name="Xəstəlik Ocağı", weather_modifier=0.9, 
             soil_moisture_modifier=1.0, ndvi_modifier=0.5, yield_modifier=0.65, drought_index=0.3, is_extreme=True
         ),
         "irrigation_recovery": ScenarioConfig(
-            slug="irrigation_recovery", name="Irrigation Recovery", weather_modifier=1.0, 
+            slug="irrigation_recovery", name="Suvarma Bərpası", weather_modifier=1.0, 
             soil_moisture_modifier=1.2, ndvi_modifier=0.8, yield_modifier=0.80, drought_index=0.4, is_extreme=False
         ),
         "high_efficiency": ScenarioConfig(
-            slug="high_efficiency", name="High Efficiency", weather_modifier=1.1, 
+            slug="high_efficiency", name="Yüksək Səmərəlilik", weather_modifier=1.1, 
             soil_moisture_modifier=1.15, ndvi_modifier=1.1, yield_modifier=0.95, drought_index=0.1, is_extreme=False
         ),
         "low_efficiency": ScenarioConfig(
-            slug="low_efficiency", name="Low Efficiency", weather_modifier=0.9, 
+            slug="low_efficiency", name="Aşağı Səmərəlilik", weather_modifier=0.9, 
             soil_moisture_modifier=0.8, ndvi_modifier=0.85, yield_modifier=0.70, drought_index=0.6, is_extreme=False
         ),
         "subsidy_improvement": ScenarioConfig(
-            slug="subsidy_improvement", name="Subsidy Improvement", weather_modifier=1.05, 
+            slug="subsidy_improvement", name="Subsidiya Təkmilləşməsi", weather_modifier=1.05, 
             soil_moisture_modifier=1.05, ndvi_modifier=1.05, yield_modifier=0.90, drought_index=0.2, is_extreme=False
         )
     }
