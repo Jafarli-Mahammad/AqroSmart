@@ -3,6 +3,7 @@ import { Activity, Bug, RefreshCcw, Settings2, Sparkles, TriangleAlert } from 'l
 import client from '../api/client'
 import useScenarioStore from '../store/scenarioStore'
 import { scenarioName } from '../constants/azText'
+import OptionSelect from '../components/common/OptionSelect'
 
 function statusDot(active) {
   return active ? 'bg-emerald-500' : 'bg-rose-500'
@@ -23,17 +24,16 @@ function ScenarioPill() {
     <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-3 text-sm">
         <span className="font-medium text-slate-500">Ssenari</span>
-        <select
-          className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none"
-          value={activeScenarioSlug}
-          onChange={(event) => setActiveScenario(event.target.value, scenarios)}
-        >
-          {scenarios.map((scenario) => (
-            <option key={scenario.slug} value={scenario.slug}>
-              {scenarioName(scenario.slug, scenario.name)}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-56">
+          <OptionSelect
+            value={activeScenarioSlug}
+            onChange={(next) => setActiveScenario(next, scenarios)}
+            options={scenarios.map((scenario) => ({
+              value: scenario.slug,
+              label: scenarioName(scenario.slug, scenario.name),
+            }))}
+          />
+        </div>
       </div>
     </div>
   )

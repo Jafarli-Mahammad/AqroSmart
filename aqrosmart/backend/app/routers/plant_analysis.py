@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from celery.result import AsyncResult
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.celery_app import celery_app
 from app.database import get_db
 from app.models.field import Field
 from app.models.plant_image_analysis import PlantImageAnalysis
+from app.tasks import process_plant_image_task
 from app.services.plant_analysis import analyze_plant_image, save_upload, validate_image_file
 
 router = APIRouter(prefix="/analysis", tags=["plant-analysis"])
@@ -29,6 +31,20 @@ class PlantAnalysisResponse(BaseModel):
     analyzed_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlantAnalysisTaskCreated(BaseModel):
+    task_id: str
+    status: str
+    field_id: int | None
+    analysis_source: str
+
+
+class PlantAnalysisTaskStatus(BaseModel):
+    task_id: str
+    status: str
+    result: dict | None = None
+    analyzed_at: datetime | None = None
 
 
 def _supplement_with_field_rules(result: dict, field: Field | None) -> tuple[str | None, str | None, list[str]]:
@@ -109,6 +125,54 @@ async def analyze_plant_upload(
         priority_flag=priority_flag,
         discrepancy_note=discrepancy_note,
         analysis_source="model",
+        analyzed_at=datetime.now(timezone.utc),
+    )
+
+
+@router.post("/plant-image/async", response_model=PlantAnalysisTaskCreated)
+async def analyze_plant_upload_async(
+    image: UploadFile = File(...),
+    field_id: int | None = Form(default=None),
+    session: AsyncSession = Depends(get_db),
+) -> PlantAnalysisTaskCreated:
+    if field_id is not None:
+        field = (await session.execute(select(Field).where(Field.id == field_id))).scalar_one_or_none()
+        if field is None:
+            raise HTTPException(status_code=404, detail="Field not found")
+
+    content = await image.read()
+    try:
+        validate_image_file(image.filename or "", content)
+        saved_path = save_upload(image.filename or "plant.jpg", content)
+        task = process_plant_image_task.delay(str(saved_path))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Tapşırıq yaradıla bilmədi: {exc}") from exc
+
+    return PlantAnalysisTaskCreated(
+        task_id=task.id,
+        status="queued",
+        field_id=field_id,
+        analysis_source="celery",
+    )
+
+
+@router.get("/plant-image/task/{task_id}", response_model=PlantAnalysisTaskStatus)
+async def get_plant_analysis_task_status(task_id: str) -> PlantAnalysisTaskStatus:
+    task_result = AsyncResult(task_id, app=celery_app)
+    if task_result.state == "PENDING":
+        return PlantAnalysisTaskStatus(task_id=task_id, status="pending")
+    if task_result.state in {"RECEIVED", "STARTED", "RETRY"}:
+        return PlantAnalysisTaskStatus(task_id=task_id, status=task_result.state.lower())
+    if task_result.state == "FAILURE":
+        return PlantAnalysisTaskStatus(task_id=task_id, status="failure")
+
+    payload = task_result.result if isinstance(task_result.result, dict) else None
+    return PlantAnalysisTaskStatus(
+        task_id=task_id,
+        status="success",
+        result=payload,
         analyzed_at=datetime.now(timezone.utc),
     )
 

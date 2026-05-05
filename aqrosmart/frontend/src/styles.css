@@ -1,0 +1,71 @@
+:root {
+  --aqro-select-border: #34d399;
+  --aqro-select-border-hover: #10b981;
+  --aqro-select-ring: rgba(16, 185, 129, 0.22);
+  --aqro-select-bg: #ffffff;
+  --aqro-select-text: #0f172a;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--aqro-select-bg) !important;
+  color: var(--aqro-select-text) !important;
+  border-radius: 0.85rem !important;
+  border: 1px solid var(--aqro-select-border) !important;
+  min-height: 44px;
+  line-height: 1.35;
+  font-weight: 500;
+  padding-right: 2.15rem !important;
+  box-shadow: 0 1px 2px rgba(2, 6, 23, 0.06);
+  background-image:
+    linear-gradient(45deg, transparent 50%, #047857 50%),
+    linear-gradient(135deg, #047857 50%, transparent 50%),
+    linear-gradient(to bottom, #ffffff, #f8fafc);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px),
+    0 0;
+  background-size:
+    6px 6px,
+    6px 6px,
+    100% 100%;
+  background-repeat: no-repeat;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease, transform 150ms ease;
+}
+
+select:hover {
+  border-color: var(--aqro-select-border-hover) !important;
+  box-shadow: 0 2px 6px rgba(2, 6, 23, 0.08);
+}
+
+select:focus {
+  outline: none;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 4px var(--aqro-select-ring), 0 2px 8px rgba(2, 6, 23, 0.1);
+  background-color: #ffffff !important;
+  transform: translateY(-0.5px);
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+select::-ms-expand {
+  display: none;
+}
+
+option {
+  color: #0f172a;
+  background: #ffffff;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 10px 12px;
+}
+
+option:checked {
+  background: #059669 linear-gradient(0deg, #059669 0%, #059669 100%);
+  color: #ffffff;
+}

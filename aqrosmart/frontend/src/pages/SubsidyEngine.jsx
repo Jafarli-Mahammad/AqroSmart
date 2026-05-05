@@ -5,6 +5,7 @@ import client from '../api/client'
 import useScenarioStore from '../store/scenarioStore'
 import Spinner from '../components/common/Spinner'
 import ErrorCard from '../components/common/ErrorCard'
+import OptionSelect from '../components/common/OptionSelect'
 import { formatCurrencyAzn, formatNumber } from '../utils/format'
 import { formatFieldLabel } from '../constants/azText'
 
@@ -174,17 +175,13 @@ export default function SubsidyEngine() {
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <label className="text-sm font-medium text-slate-600">
             Sahə
-            <select
-              className="mt-1 block min-w-80 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none"
-              value={selectedFieldId}
-              onChange={(event) => setSelectedFieldId(event.target.value)}
-            >
-              {fields.map((field) => (
-                <option key={field.id} value={field.id}>
-                  {field.label}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1 min-w-80">
+              <OptionSelect
+                value={selectedFieldId}
+                onChange={setSelectedFieldId}
+                options={fields.map((field) => ({ value: String(field.id), label: field.label }))}
+              />
+            </div>
           </label>
 
           <button

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Filter, MapPin, TrendingUp } from 'lucide-react'
 import client from '../api/client'
 import ErrorCard from '../components/common/ErrorCard'
+import OptionSelect from '../components/common/OptionSelect'
 import { formatNumber } from '../utils/format'
 
 export default function Farms() {
@@ -52,14 +53,13 @@ export default function Farms() {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <label className="text-sm text-slate-600">
             Region
-            <select value={regionFilter} onChange={(e) => setRegionFilter(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <option value="all">Hamısı</option>
-              {regions.map((region) => (
-                <option key={region} value={region}>
-                  {region}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <OptionSelect
+                value={regionFilter}
+                onChange={setRegionFilter}
+                options={[{ value: 'all', label: 'Hamısı' }, ...regions.map((region) => ({ value: region, label: region }))]}
+              />
+            </div>
           </label>
           <label className="text-sm text-slate-600 md:col-span-2">
             Minimum məhsuldarlıq: {scoreMin}%

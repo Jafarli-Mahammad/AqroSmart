@@ -3,13 +3,23 @@ import logging
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
+import sentry_sdk
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.config import settings
 from app.routers import dashboard, farms, fields, analysis, subsidy, irrigation, credit_score, simulation, plant_analysis
 from app.database import AsyncSessionLocal
 
 logger = logging.getLogger("aqrosmart")
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.SENTRY_ENVIRONMENT,
+        traces_sample_rate=0.2,
+    )
 
 app = FastAPI(title="AqroSmart API")
 
@@ -30,6 +40,7 @@ app.include_router(irrigation.router)
 app.include_router(credit_score.router)
 app.include_router(simulation.router)
 app.include_router(plant_analysis.router)
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.exception_handler(Exception)

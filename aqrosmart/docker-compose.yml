@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: aqrosmart
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-aqrosmart}
     ports:
       - "5432:5432"
     volumes:
@@ -15,6 +15,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build: ./backend
     ports:
@@ -22,18 +35,43 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/aqrosmart
+      - DATABASE_URL=${AQRO_DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/aqrosmart}
+      - REDIS_URL=${AQRO_REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${AQRO_CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${AQRO_CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      - SENTRY_DSN=${BACKEND_SENTRY_DSN}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-docker-dev}
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --workers 1
+
+  celery-worker:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=${AQRO_DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/aqrosmart}
+      - REDIS_URL=${AQRO_REDIS_URL:-redis://redis:6379/0}
+      - CELERY_BROKER_URL=${AQRO_CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${AQRO_CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      - SENTRY_DSN=${BACKEND_SENTRY_DSN}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-docker-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app:celery_app worker --loglevel=info
 
   seed:
     build: ./backend
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/aqrosmart
+      - DATABASE_URL=${AQRO_DATABASE_URL:-postgresql+asyncpg://user:password@db:5432/aqrosmart}
     depends_on:
       db:
         condition: service_healthy
@@ -49,10 +87,56 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_SENTRY_DSN=${FRONTEND_SENTRY_DSN}
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    ports:
+      - "3001:3001"
+    volumes:
+      - kuma-data:/app/data
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  k6:
+    image: grafana/k6:latest
+    profiles:
+      - tools
+    volumes:
+      - ./ops/k6:/scripts:ro
+    entrypoint: ["k6"]
+    command: ["run", "/scripts/smoke.js"]
+
 volumes:
   pgdata:
+  redisdata:
+  kuma-data:
+  prometheus-data:
+  grafana-data:

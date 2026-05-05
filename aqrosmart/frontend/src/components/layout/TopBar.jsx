@@ -4,6 +4,7 @@ import { ChevronRight, Menu, Tractor } from 'lucide-react'
 import client from '../../api/client'
 import useScenarioStore from '../../store/scenarioStore'
 import { scenarioName } from '../../constants/azText'
+import OptionSelect from '../common/OptionSelect'
 
 const titleMap = [
   { path: '/', title: 'İdarə paneli' },
@@ -102,18 +103,16 @@ export default function TopBar({ onOpenSidebar = () => {} }) {
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 shadow-sm">
           <span className="font-medium text-slate-500">Ssenari</span>
-          <select
-            className="min-w-44 border-0 bg-transparent p-0 text-sm font-medium text-slate-900 focus:outline-none focus:ring-0"
+          <OptionSelect
+            className="min-w-48"
             value={activeScenarioSlug}
-            onChange={handleScenarioChange}
+            onChange={(next) => handleScenarioChange({ target: { value: next } })}
             disabled={isSwitching}
-          >
-            {(scenarios.length ? scenarios : [{ slug: 'healthy_field', name: 'Healthy Field' }]).map((scenario) => (
-              <option key={scenario.slug} value={scenario.slug}>
-                {scenarioName(scenario.slug, scenario.name)}
-              </option>
-            ))}
-          </select>
+            options={(scenarios.length ? scenarios : [{ slug: 'healthy_field', name: 'Healthy Field' }]).map((scenario) => ({
+              value: scenario.slug,
+              label: scenarioName(scenario.slug, scenario.name),
+            }))}
+          />
         </label>
 
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { GaugeCircle, ImagePlus, Save, Sparkles, UploadCloud } from 'lucide-react'
 import client from '../api/client'
 import ErrorCard from '../components/common/ErrorCard'
+import OptionSelect from '../components/common/OptionSelect'
 import { formatFieldLabel } from '../constants/azText'
 import { formatNumber } from '../utils/format'
 
@@ -96,11 +97,11 @@ export default function PlantHealth() {
         <h2 className="text-xl font-semibold text-slate-900">AI Bitki Sağlamlığı Analizi</h2>
         <p className="mt-1 text-sm text-slate-500">Bitki şəklini yükləyin, sistem xəstəlik və su stresini təhlil etsin.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" value={selectedFieldId} onChange={(e) => setSelectedFieldId(e.target.value)}>
-            {fields.map((field) => (
-              <option key={field.id} value={field.id}>{field.label}</option>
-            ))}
-          </select>
+          <OptionSelect
+            value={selectedFieldId}
+            onChange={setSelectedFieldId}
+            options={fields.map((field) => ({ value: String(field.id), label: field.label }))}
+          />
           <label className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100">
             <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={onFileChange} className="hidden" />
             <span className="inline-flex items-center gap-2"><UploadCloud className="h-4 w-4" /> Şəkil seç / sürüklə</span>

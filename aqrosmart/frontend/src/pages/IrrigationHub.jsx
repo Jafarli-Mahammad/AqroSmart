@@ -6,6 +6,7 @@ import useScenarioStore from '../store/scenarioStore'
 import { formatDateTime } from '../utils/format'
 import { formatFieldLabel } from '../constants/azText'
 import ErrorCard from '../components/common/ErrorCard'
+import OptionSelect from '../components/common/OptionSelect'
 
 function Spinner() {
   return (
@@ -203,17 +204,13 @@ export default function IrrigationHub() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none"
-              value={selectedFieldId}
-              onChange={(event) => setSelectedFieldId(event.target.value)}
-            >
-              {fields.map((field) => (
-                <option key={field.id} value={field.id}>
-                  {field.label}
-                </option>
-              ))}
-            </select>
+            <div className="min-w-80">
+              <OptionSelect
+                value={selectedFieldId}
+                onChange={setSelectedFieldId}
+                options={fields.map((field) => ({ value: String(field.id), label: field.label }))}
+              />
+            </div>
 
             <button
               type="button"

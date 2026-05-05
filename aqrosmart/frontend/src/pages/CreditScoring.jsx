@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Download, Lightbulb, TrendingUp, UserCircle2 } from 'lucide-react'
 import client from '../api/client'
 import ErrorCard from '../components/common/ErrorCard'
+import OptionSelect from '../components/common/OptionSelect'
 import { formatNumber } from '../utils/format'
 
 function TierBadge({ tier, score }) {
@@ -149,17 +150,13 @@ export default function CreditScoring() {
 
           <label className="text-sm font-medium text-slate-600">
             Fermer
-            <select
-              className="mt-1 block min-w-72 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none"
-              value={selectedFarmerId}
-              onChange={(event) => setSelectedFarmerId(event.target.value)}
-            >
-              {farmerOptions.map((farmer) => (
-                <option key={farmer.farmer_id} value={farmer.farmer_id}>
-                  {farmer.farmer_name}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1 min-w-72">
+              <OptionSelect
+                value={selectedFarmerId}
+                onChange={setSelectedFarmerId}
+                options={farmerOptions.map((farmer) => ({ value: String(farmer.farmer_id), label: farmer.farmer_name }))}
+              />
+            </div>
           </label>
         </div>
         <div className="mt-4 text-xs text-slate-500">Regional reytinq: Bölgədəki fermerlərin {creditScore ? Math.max(52, Math.round((creditScore.final_score || 0) * 0.9)) : 0}%-dən daha yüksək nəticə.</div>
