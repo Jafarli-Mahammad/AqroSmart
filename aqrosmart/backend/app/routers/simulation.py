@@ -196,7 +196,21 @@ async def get_simulation_state(
 async def set_active_scenario(scenario_slug: str, session: AsyncSession = Depends(get_db)) -> SimulationStateResponse:
     scenario = (await session.execute(select(Scenario).where(Scenario.slug == scenario_slug))).scalar_one_or_none()
     if scenario is None:
-        raise HTTPException(status_code=404, detail="Scenario not found")
+        seed = get_scenario_by_slug(scenario_slug)
+        if seed.slug != scenario_slug:
+            raise HTTPException(status_code=404, detail="Scenario not found")
+        scenario = Scenario(
+            name=seed.name,
+            slug=seed.slug,
+            description=f"Auto-created scenario for {seed.name}",
+            weather_modifier=seed.weather_modifier,
+            soil_moisture_modifier=seed.soil_moisture_modifier,
+            ndvi_modifier=seed.ndvi_modifier,
+            yield_modifier=seed.yield_modifier,
+            is_active=False,
+        )
+        session.add(scenario)
+        await session.flush()
 
     await session.execute(update(Scenario).values(is_active=False))
     scenario.is_active = True

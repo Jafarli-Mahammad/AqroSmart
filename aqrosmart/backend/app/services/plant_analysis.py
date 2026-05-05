@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
 from uuid import uuid4
 
@@ -10,7 +12,7 @@ from PIL import ImageStat
 
 logger = logging.getLogger("aqrosmart.plant_analysis")
 
-UPLOAD_DIR = Path("/app/uploads/plant_images")
+UPLOAD_DIR = Path(os.getenv("AQRO_UPLOAD_DIR", "/tmp/aqrosmart/uploads/plant_images"))
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 ALLOWED_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -103,11 +105,18 @@ def validate_image_file(filename: str, content: bytes) -> None:
 
 
 def save_upload(filename: str, content: bytes) -> Path:
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     suffix = Path(filename).suffix.lower() or ".jpg"
-    target = UPLOAD_DIR / f"{uuid4().hex}{suffix}"
-    target.write_bytes(content)
-    return target
+    try:
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        target = UPLOAD_DIR / f"{uuid4().hex}{suffix}"
+        target.write_bytes(content)
+        return target
+    except PermissionError:
+        fallback_dir = Path(tempfile.gettempdir()) / "aqrosmart" / "uploads" / "plant_images"
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        target = fallback_dir / f"{uuid4().hex}{suffix}"
+        target.write_bytes(content)
+        return target
 
 
 def analyze_plant_image(image_path: Path) -> dict[str, Any]:

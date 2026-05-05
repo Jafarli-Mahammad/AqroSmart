@@ -24,12 +24,20 @@ async def get_subsidy_recommendation(field_id: int, session: AsyncSession = Depe
     if recommendation is None:
         raise HTTPException(status_code=404, detail="Subsidy recommendation not found")
 
+    final_subsidy = float(recommendation.final_subsidy_azn or 0.0)
+    if final_subsidy <= 0:
+        final_subsidy = float(recommendation.base_subsidy_azn or 0.0)
+        final_subsidy *= float(recommendation.performance_factor or 1.0)
+        final_subsidy *= float(recommendation.efficiency_factor or 1.0)
+        final_subsidy *= float(recommendation.water_use_factor or 1.0)
+        final_subsidy *= float(recommendation.yield_alignment_factor or 1.0)
+
     return SubsidyBreakdown(
         base_subsidy_azn=float(recommendation.base_subsidy_azn or 0.0),
         performance_factor=float(recommendation.performance_factor or 0.0),
         efficiency_factor=float(recommendation.efficiency_factor or 0.0),
         water_use_factor=float(recommendation.water_use_factor or 0.0),
         yield_alignment_factor=float(recommendation.yield_alignment_factor or 0.0),
-        final_subsidy_azn=float(recommendation.final_subsidy_azn or 0.0),
+        final_subsidy_azn=round(final_subsidy, 2),
         calculation_note=recommendation.calculation_note or "",
     )

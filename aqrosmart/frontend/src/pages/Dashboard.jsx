@@ -7,6 +7,8 @@ import ErrorCard from '../components/common/ErrorCard'
 import Badge from '../components/common/Badge'
 import { formatCurrencyAzn, formatNumber } from '../utils/format'
 
+const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN
+
 function MetricCard({ title, value, icon: Icon, accent = 'text-emerald-700' }) {
   return (
     <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -118,6 +120,28 @@ export default function Dashboard() {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }))
   }, [farmRows])
 
+  const mapMarkers = useMemo(() => {
+    const markers = []
+    Object.values(fieldDetails).forEach((detail) => {
+      ;(detail?.fieldRows || []).forEach((field) => {
+        const lat = Number(field.latitude)
+        const lon = Number(field.longitude)
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          markers.push({ lat, lon, name: field.field_name || field.crop_type || 'Field' })
+        }
+      })
+    })
+    return markers.slice(0, 20)
+  }, [fieldDetails])
+
+  const mapboxStaticUrl = useMemo(() => {
+    if (!mapboxToken || !mapMarkers.length) return ''
+    const overlay = mapMarkers
+      .map((marker) => `pin-s+059669(${marker.lon.toFixed(6)},${marker.lat.toFixed(6)})`)
+      .join(',')
+    return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlay}/auto/900x360?padding=40&access_token=${encodeURIComponent(mapboxToken)}`
+  }, [mapMarkers])
+
   if (loading) {
     return <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }).map((_, idx) => <div key={idx} className="h-28 animate-pulse rounded-2xl bg-emerald-100/60" />)}</div>
   }
@@ -194,12 +218,25 @@ export default function Dashboard() {
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700"><Leaf className="h-4 w-4 text-emerald-700" /> Təsərrüfat xəritə görünüşü</div>
-          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50 to-amber-50 text-center">
-            <div>
-              <div className="text-2xl">📍</div>
-              <p className="mt-2 text-sm text-slate-600">Xəritə inteqrasiyası hazırdır (leaflet/mapbox əlavə edilə bilər)</p>
+          {mapboxStaticUrl ? (
+            <img
+              src={mapboxStaticUrl}
+              alt="Təsərrüfat xəritəsi"
+              className="h-64 w-full rounded-2xl border border-emerald-200 object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-emerald-200 bg-gradient-to-br from-emerald-50 to-amber-50 text-center">
+              <div>
+                <div className="text-2xl">📍</div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {mapboxToken
+                    ? 'Xəritə üçün sahə koordinatları tapılmadı.'
+                    : 'Mapbox üçün VITE_MAPBOX_TOKEN (pk...) əlavə edin.'}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
         <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
           <div className="mb-3 text-sm font-semibold text-slate-700">Subsidiya bölgüsü (region üzrə)</div>
