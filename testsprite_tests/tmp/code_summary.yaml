@@ -1,0 +1,101 @@
+version: "2"
+type: backend
+tech_stack:
+  - python
+  - fastapi
+  - postgresql
+  - sqlalchemy
+  - celery
+  - redis
+features:
+  - name: Farms Management
+    description: CRUD operations for farms
+    files:
+      - app/routers/farms.py
+      - app/models/domain.py
+    endpoints:
+      - method: GET
+        path: /api/v1/farms
+        description: List all farms
+        auth_required: false
+      - method: POST
+        path: /api/v1/farms
+        description: Create a new farm
+        auth_required: false
+  - name: Dashboard
+    description: Dashboard operations
+    files:
+      - app/routers/dashboard.py
+    endpoints:
+      - method: GET
+        path: /api/v1/dashboard
+        description: Get dashboard summary
+        auth_required: false
+  - name: Fields Management
+    description: CRUD operations for fields
+    files:
+      - app/routers/fields.py
+      - app/models/domain.py
+    endpoints:
+      - method: GET
+        path: /api/v1/fields
+        description: List all fields
+        auth_required: false
+  - name: Soil Analysis
+    description: Operations related to soil analysis
+    files:
+      - app/routers/analysis.py
+    endpoints:
+      - method: GET
+        path: /api/v1/analysis
+        description: List all analyses
+        auth_required: false
+  - name: Subsidy Management
+    description: Operations related to subsidies
+    files:
+      - app/routers/subsidy.py
+    endpoints:
+      - method: GET
+        path: /api/v1/subsidies
+        description: Get subsidies
+        auth_required: false
+  - name: Irrigation Recommendations
+    description: Operations related to irrigation recommendations
+    files:
+      - app/routers/irrigation.py
+    endpoints:
+      - method: GET
+        path: /api/v1/irrigation
+        description: Get irrigation data
+        auth_required: false
+  - name: Credit Scoring
+    description: Operations related to credit score and financial metrics
+    files:
+      - app/routers/credit_score.py
+    endpoints:
+      - method: GET
+        path: /api/v1/credit_score
+        description: Get credit score data
+        auth_required: false
+  - name: Market Simulation
+    description: Operations related to yield and market simulation
+    files:
+      - app/routers/simulation.py
+    endpoints:
+      - method: GET
+        path: /api/v1/simulation
+        description: Get simulation data
+        auth_required: false
+  - name: Plant Analysis
+    description: Operations related to plant and drone image analysis
+    files:
+      - app/routers/plant_analysis.py
+    endpoints:
+      - method: GET
+        path: /api/v1/plant_analysis
+        description: Get plant analysis data
+        auth_required: false
+known_limitations:
+  - issue: Minimal input validation
+    location: app/routers
+    impact: Potential for invalid data

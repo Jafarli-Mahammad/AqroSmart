@@ -128,7 +128,6 @@ async def run_analysis(payload: AnalysisRunRequest, session: AsyncSession = Depe
         timestamp=analysis_result.timestamp,
         current_soil_moisture=analysis_result.sensor_data.soil_moisture_pct,
         target_soil_moisture=70.0,
-        water_needed_mm=irrigation_result.recommended_water_mm,
         recommended_water_mm=irrigation_result.recommended_water_mm,
         estimated_savings_pct=max(0.0, round(savings_pct, 2)),
         recommendation_text=irrigation_result.recommendation_text,

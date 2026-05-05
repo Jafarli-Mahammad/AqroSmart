@@ -17,7 +17,6 @@ class IrrigationRecommendation(Base):
     timestamp = Column(DateTime(timezone=True))
     current_soil_moisture = Column(Float)
     target_soil_moisture = Column(Float)
-    water_needed_mm = Column(Float)
     recommended_water_mm = Column(Float)
     estimated_savings_pct = Column(Float)
     recommendation_text = Column(String)

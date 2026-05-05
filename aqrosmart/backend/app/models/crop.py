@@ -7,8 +7,8 @@ class Crop(Base):
     __tablename__ = "crops"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    typical_yield_per_ha = Column("typical_yield_kg_ha", Float)
-    water_requirement_mm = Column("water_req_mm", Float)
+    typical_yield_per_ha = Column(Float)
+    water_requirement_mm = Column(Float)
     growth_days = Column(Integer)
     season = Column(String)
     field_id = Column(Integer, ForeignKey("fields.id"), nullable=True, index=True)

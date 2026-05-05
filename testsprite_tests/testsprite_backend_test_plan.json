@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get_farms_should_return_list_of_farms",
+    "description": "Test GET /api/v1/farms to ensure it returns a 200 status with a list of farm records including region, district, and metadata."
+  },
+  {
+    "id": "TC002",
+    "title": "post_farms_should_create_new_farm_with_valid_data",
+    "description": "Test POST /api/v1/farms with valid farm data to verify it returns 201 or 200 status and the created farm record appears in subsequent GET /api/v1/farms responses."
+  },
+  {
+    "id": "TC003",
+    "title": "post_farms_should_return_validation_error_for_invalid_data",
+    "description": "Test POST /api/v1/farms with missing or malformed fields to confirm it returns a 400 or 422 validation error and prevents farm creation."
+  },
+  {
+    "id": "TC004",
+    "title": "get_dashboard_should_return_system_summary",
+    "description": "Test GET /api/v1/dashboard to verify it returns 200 status with counts, productivity metrics, and subsidy totals for dashboard KPIs."
+  },
+  {
+    "id": "TC005",
+    "title": "get_fields_should_return_list_of_fields",
+    "description": "Test GET /api/v1/fields to ensure it returns 200 status with a collection of field records for browsing and drill-down."
+  },
+  {
+    "id": "TC006",
+    "title": "get_analysis_should_return_list_of_soil_analysis_records",
+    "description": "Test GET /api/v1/analysis to verify it returns 200 status with soil analysis run data for monitoring historical results."
+  },
+  {
+    "id": "TC007",
+    "title": "get_subsidies_should_return_subsidy_recommendations",
+    "description": "Test GET /api/v1/subsidies to confirm it returns 200 status with subsidy data including base subsidy, multipliers, and final recommended subsidy."
+  },
+  {
+    "id": "TC008",
+    "title": "get_irrigation_should_return_irrigation_recommendations",
+    "description": "Test GET /api/v1/irrigation to verify it returns 200 status with recommended water amounts and urgency levels for irrigation guidance."
+  },
+  {
+    "id": "TC009",
+    "title": "get_credit_score_should_return_farmer_credit_data",
+    "description": "Test GET /api/v1/credit_score to ensure it returns 200 status with credit score components, final score, and risk tier for financial risk profiling."
+  },
+  {
+    "id": "TC010",
+    "title": "get_simulation_should_return_market_simulation_data",
+    "description": "Test GET /api/v1/simulation to verify it returns 200 status with active scenario and simulated metrics for yield and market scenario evaluation."
+  }
+]

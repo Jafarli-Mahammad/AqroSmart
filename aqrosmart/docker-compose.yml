@@ -89,6 +89,7 @@ services:
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
       - VITE_SENTRY_DSN=${FRONTEND_SENTRY_DSN}
+      - VITE_MAPBOX_TOKEN=${VITE_MAPBOX_TOKEN:-pk.eyJ1IjoiY2YtbWVoZW1tZWQiLCJhIjoiY21vOTBoaTNnMDNjdTJxc2Vid2gwcGIzcCJ9.8rwWN-Eb8mqhCVWyjWHSNQ}
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend

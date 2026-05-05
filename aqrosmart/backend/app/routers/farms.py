@@ -52,6 +52,8 @@ class FarmFieldItem(BaseModel):
     area_ha: float | None
     soil_type: str | None
     irrigation_type: str | None
+    latitude: float | None
+    longitude: float | None
     ndvi_score: float | None
     ndwi_score: float | None
     latest_analysis_run: FieldAnalysisSummary | None
@@ -154,6 +156,8 @@ async def get_farm(farm_id: int, session: AsyncSession = Depends(get_db)) -> Far
                 area_ha=field.area_ha,
                 soil_type=field.soil_type,
                 irrigation_type=field.irrigation_type,
+                latitude=field.latitude,
+                longitude=field.longitude,
                 ndvi_score=field.ndvi_score,
                 ndwi_score=field.ndwi_score,
                 latest_analysis_run=latest_analysis,
